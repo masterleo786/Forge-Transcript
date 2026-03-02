@@ -1,0 +1,116 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api, buildUrl, type CreateUrlRequest, type TranscriptResponse } from "@shared/routes";
+
+function parseWithLogging<T>(schema: any, data: unknown, label: string): T {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    console.error(`[Zod] ${label} validation failed:`, result.error.format());
+    throw result.error;
+  }
+  return result.data;
+}
+
+export function useTranscripts() {
+  return useQuery({
+    queryKey: [api.transcripts.list.path],
+    queryFn: async () => {
+      const res = await fetch(api.transcripts.list.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch transcripts");
+      const data = await res.json();
+      return parseWithLogging<TranscriptResponse[]>(api.transcripts.list.responses[200], data, "transcripts.list");
+    },
+  });
+}
+
+export function useTranscript(id: number) {
+  return useQuery({
+    queryKey: [api.transcripts.get.path, id],
+    queryFn: async () => {
+      const url = buildUrl(api.transcripts.get.path, { id });
+      const res = await fetch(url, { credentials: "include" });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error("Failed to fetch transcript");
+      const data = await res.json();
+      return parseWithLogging<TranscriptResponse>(api.transcripts.get.responses[200], data, "transcripts.get");
+    },
+    // Poll every 2 seconds if status is pending or processing
+    refetchInterval: (query) => {
+      const data = query.state.data as TranscriptResponse | undefined;
+      if (data && (data.status === "pending" || data.status === "processing")) {
+        return 2000;
+      }
+      return false;
+    },
+  });
+}
+
+export function useCreateFromUrl() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: CreateUrlRequest) => {
+      const validated = api.transcripts.createFromUrl.input.parse(data);
+      const res = await fetch(api.transcripts.createFromUrl.path, {
+        method: api.transcripts.createFromUrl.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(validated),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        if (res.status === 400) {
+           const errorData = await res.json();
+           throw new Error(errorData.message || "Invalid URL");
+        }
+        throw new Error("Failed to start URL processing");
+      }
+      return await res.json() as TranscriptResponse;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.transcripts.list.path] });
+    },
+  });
+}
+
+export function useCreateFromFile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(api.transcripts.createFromFile.path, {
+        method: api.transcripts.createFromFile.method,
+        body: formData,
+        credentials: "include",
+      });
+      
+      if (!res.ok) {
+        if (res.status === 400) {
+           const errorData = await res.json();
+           throw new Error(errorData.message || "Invalid file");
+        }
+        throw new Error("Failed to upload file");
+      }
+      return await res.json() as TranscriptResponse;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.transcripts.list.path] });
+    },
+  });
+}
+
+export function useDeleteTranscript() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.transcripts.delete.path, { id });
+      const res = await fetch(url, { 
+        method: api.transcripts.delete.method, 
+        credentials: "include" 
+      });
+      if (!res.ok) throw new Error("Failed to delete transcript");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.transcripts.list.path] });
+    },
+  });
+}
