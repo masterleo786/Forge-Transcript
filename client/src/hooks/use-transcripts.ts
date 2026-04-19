@@ -31,16 +31,15 @@ export function useTranscript(id: number) {
       if (res.status === 404) return null;
       if (!res.ok) throw new Error("Failed to fetch transcript");
       const data = await res.json();
-      return parseWithLogging<TranscriptResponse>(api.transcripts.get.responses[200], data, "transcripts.get");
+      return data as TranscriptResponse;
     },
-    // Poll every 2 seconds if status is pending or processing
+    enabled: id > 0,
+    // Poll every 3 seconds while processing. Re-evaluated after every fetch result.
     refetchInterval: (query) => {
-      const data = query.state.data as TranscriptResponse | undefined;
-      if (data && (data.status === "pending" || data.status === "processing")) {
-        return 2000;
-      }
-      return false;
+      const status = (query.state.data as TranscriptResponse | null | undefined)?.status;
+      return status === "pending" || status === "processing" ? 3000 : false;
     },
+    refetchIntervalInBackground: true,
   });
 }
 

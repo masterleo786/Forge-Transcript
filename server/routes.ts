@@ -153,17 +153,8 @@ async function processUrlTranscription(id: number, url: string) {
   try {
     await storage.updateTranscriptStatus(id, "processing");
 
-    // Extract audio
+    // Extract audio — get title and platform from the extractor
     const { buffer: mediaBuffer, format, platform, title } = await extractMediaFromUrl(url);
-
-    // Update title and platform if we got better info
-    if (title || platform) {
-       await storage.updateTranscriptResult(id, { 
-           title: title || "Video", 
-           platform: platform,
-           status: "processing" // keep processing
-       });
-    }
 
     // Convert to compatible format
     const { buffer: compatibleBuffer, format: compFormat } = await ensureCompatibleFormat(mediaBuffer);
@@ -176,17 +167,17 @@ async function processUrlTranscription(id: number, url: string) {
 
     // Estimate words and duration
     const wordCount = transcriptText.split(/\s+/).length;
-    // Rough estimate: ~150 words per minute
     const duration = Math.round((wordCount / 150) * 60);
 
-    // Save success
+    // Save everything in one final write — this is what marks it "complete"
     await storage.updateTranscriptResult(id, {
+      title: title || "Video",
+      platform: platform,
       content: transcriptText,
       summary: summary,
       wordCount,
       duration,
-      language: "en", // Simplified for MVP
-      status: "complete"
+      language: "en",
     });
 
   } catch (error: any) {
