@@ -4,6 +4,9 @@ import { Link } from "wouter";
 import { ArrowLeft, Copy, Download, Link2, Clock, Globe, Type } from "lucide-react";
 import { ProcessingSteps } from "@/components/ProcessingSteps";
 import { PlatformIcon } from "@/components/ui/platform-icon";
+import { AdBanner } from "@/components/AdBanner";
+import { AppHeader } from "@/components/AppHeader";
+import { useUsage } from "@/hooks/use-auth";
 import { saveAs } from "file-saver";
 import { useState } from "react";
 import { motion } from "framer-motion";
@@ -12,19 +15,30 @@ export default function TranscriptDetail() {
   const [, params] = useRoute("/transcript/:id");
   const id = parseInt(params?.id || "0");
   const { data: transcript, isLoading, error } = useTranscript(id);
+  const { data: usage } = useUsage();
   const [copied, setCopied] = useState(false);
 
+  const showAds = !usage || usage.plan === "free" || usage.plan === "guest";
+  const hasSrt = usage?.hasSrt ?? false;
+
   if (isLoading) {
-    return <div className="min-h-screen bg-background flex items-center justify-center"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"/></div>;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"/>
+      </div>
+    );
   }
 
   if (error || !transcript) {
     return (
-      <div className="min-h-screen bg-background p-8">
-        <Link href="/" className="text-primary hover:underline flex items-center gap-2 mb-8"><ArrowLeft className="w-4 h-4"/> Back Home</Link>
-        <div className="glass-card p-10 text-center max-w-lg mx-auto rounded-2xl">
-          <h2 className="text-2xl font-bold mb-2">Transcript Not Found</h2>
-          <p className="text-muted-foreground">The requested transcript does not exist or an error occurred.</p>
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <div className="p-8">
+          <Link href="/" className="text-primary hover:underline flex items-center gap-2 mb-8"><ArrowLeft className="w-4 h-4"/> Back Home</Link>
+          <div className="glass-card p-10 text-center max-w-lg mx-auto rounded-2xl">
+            <h2 className="text-2xl font-bold mb-2">Transcript Not Found</h2>
+            <p className="text-muted-foreground">The requested transcript does not exist or an error occurred.</p>
+          </div>
         </div>
       </div>
     );
@@ -54,8 +68,9 @@ export default function TranscriptDetail() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-white/5 pt-6 pb-4 px-4 md:px-8">
+      <AppHeader />
+      {/* Page header */}
+      <header className="sticky top-14 z-40 bg-background/80 backdrop-blur-xl border-b border-white/5 pt-4 pb-4 px-4 md:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link href="/" className="p-2 hover:bg-white/10 rounded-full transition-colors">
@@ -92,13 +107,21 @@ export default function TranscriptDetail() {
               >
                 <Download className="w-4 h-4" /> TXT
               </button>
-              {transcript.srtContent && (
-                <button 
+              {transcript.srtContent && hasSrt && (
+                <button
                   onClick={handleDownloadSrt}
                   className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-lg shadow-primary/20"
                 >
                   <Download className="w-4 h-4" /> SRT
                 </button>
+              )}
+              {!hasSrt && transcript.status === "complete" && (
+                <Link
+                  href="/pricing"
+                  className="px-4 py-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 rounded-lg text-sm font-medium flex items-center gap-2 transition-all"
+                >
+                  <Download className="w-4 h-4" /> SRT (upgrade)
+                </Link>
               )}
             </div>
           )}
@@ -140,6 +163,11 @@ export default function TranscriptDetail() {
                   </div>
                 </div>
               </motion.div>
+
+              {/* Ad banner for free users */}
+              {showAds && (
+                <AdBanner slot="sidebar" />
+              )}
 
               {transcript.summary && (
                 <motion.div 
