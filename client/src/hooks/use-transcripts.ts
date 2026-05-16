@@ -34,9 +34,14 @@ export function useTranscript(id: number) {
       return data as TranscriptResponse;
     },
     enabled: id > 0,
-    // Poll every 3 seconds while processing. Re-evaluated after every fetch result.
+    staleTime: 0,
+    retry: 3,
+    // Keep polling as long as there's no data yet OR status is still processing.
+    // Without the !data check, a momentary null response would stop polling forever.
     refetchInterval: (query) => {
-      const status = (query.state.data as TranscriptResponse | null | undefined)?.status;
+      const data = query.state.data as TranscriptResponse | null | undefined;
+      if (!data) return 3000;
+      const { status } = data;
       return status === "pending" || status === "processing" ? 3000 : false;
     },
     refetchIntervalInBackground: true,
