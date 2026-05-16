@@ -127,10 +127,9 @@ export class DatabaseStorage implements IStorage {
     if (!user) return;
     const resetDate = user.monthResetDate ?? new Date();
     const now = new Date();
-    const monthsDiff =
-      (now.getFullYear() - resetDate.getFullYear()) * 12 +
-      (now.getMonth() - resetDate.getMonth());
-    if (monthsDiff >= 1) {
+    // Reset every 28 days (rolling window)
+    const daysDiff = (now.getTime() - resetDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysDiff >= 28) {
       await db
         .update(users)
         .set({ transcriptsUsedThisMonth: 0, monthResetDate: now })

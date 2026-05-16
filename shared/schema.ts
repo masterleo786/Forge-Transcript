@@ -68,14 +68,15 @@ export type CreateUrlRequest = { url: string };
 export type TranscriptResponse = Transcript;
 
 // ─── Plan limits ──────────────────────────────────────────────────────────────
+// Reset period is 28 days (not calendar month) for all plans.
 
 export const PLAN_LIMITS: Record<UserPlan, { transcriptsPerMonth: number; hasAds: boolean; hasSrt: boolean; label: string }> = {
-  free:  { transcriptsPerMonth: 3,   hasAds: true,  hasSrt: false, label: "Free"  },
-  basic: { transcriptsPerMonth: 30,  hasAds: false, hasSrt: true,  label: "Basic" },
-  pro:   { transcriptsPerMonth: 999, hasAds: false, hasSrt: true,  label: "Pro"   },
+  free:  { transcriptsPerMonth: 10,  hasAds: true,  hasSrt: false, label: "Free"  },
+  basic: { transcriptsPerMonth: 50,  hasAds: false, hasSrt: true,  label: "Basic" },
+  pro:   { transcriptsPerMonth: 9999, hasAds: false, hasSrt: true,  label: "Pro"   },
 };
 
 export const PLAN_PRICING = {
-  basic: { monthly: 4.99, annual: 39.99, stripePriceMonthly: "", stripePriceAnnual: "" },
-  pro:   { monthly: 9.99, annual: 79.99, stripePriceMonthly: "", stripePriceAnnual: "" },
+  basic: { monthly: 2.50, annual: 19.99, stripePriceMonthly: "", stripePriceAnnual: "" },
+  pro:   { monthly: 9.99, annual: 7.00,  stripePriceMonthly: "", stripePriceAnnual: "" },
 };

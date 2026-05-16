@@ -44,7 +44,7 @@ integrations = ["javascript_openai_ai_integrations:2.0.0", "javascript_database:
 [userenv]
 
 [userenv.shared]
-STRIPE_PRICE_BASIC_MONTHLY = "price_1TNoWOQksV7LmuIG4lAuSxwJ"
+STRIPE_PRICE_BASIC_MONTHLY = "price_1TXjDHQksV7LmuIGixJ2uQ6u"
 STRIPE_PRICE_BASIC_ANNUAL = "price_1TNoWPQksV7LmuIGgC1IVVvO"
 STRIPE_PRICE_PRO_MONTHLY = "price_1TNoWPQksV7LmuIG4feQaXQ6"
-STRIPE_PRICE_PRO_ANNUAL = "price_1TNoWPQksV7LmuIG6MAxUi0s"
+STRIPE_PRICE_PRO_ANNUAL = "price_1TXjDIQksV7LmuIGT3jFN4KV"

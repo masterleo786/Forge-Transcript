@@ -12,16 +12,17 @@ const PLANS = [
     icon: <Zap className="w-5 h-5" />,
     monthlyPrice: 0,
     annualPrice: 0,
+    annualTotal: 0,
     description: "Try TranscriptForge at no cost",
     color: "border-white/10",
     badge: null,
     features: [
-      { label: "3 transcripts per month", ok: true },
+      { label: "10 transcripts per month", ok: true },
       { label: "Facebook, YouTube, Instagram, TikTok URLs", ok: true },
       { label: "File upload (MP3, MP4, WAV…)", ok: true },
       { label: "AI-powered summary", ok: true },
       { label: "Copy & TXT download", ok: true },
-      { label: "Ad-supported", ok: false, note: "Shows ads" },
+      { label: "Ad-supported", ok: false, note: "shows ads" },
       { label: "SRT subtitle download", ok: false },
       { label: "Priority processing queue", ok: false },
     ],
@@ -32,13 +33,14 @@ const PLANS = [
     key: "basic",
     name: "Basic",
     icon: <Crown className="w-5 h-5" />,
-    monthlyPrice: 4.99,
-    annualPrice: 39.99,
+    monthlyPrice: 2.50,
+    annualPrice: 2.50,   // shown per-month when annual toggle active
+    annualTotal: 19.99,  // actual annual charge
     description: "Great for regular creators",
     color: "border-blue-500/40",
     badge: "Most popular",
     features: [
-      { label: "30 transcripts per month", ok: true },
+      { label: "50 transcripts per 28 days", ok: true },
       { label: "Facebook, YouTube, Instagram, TikTok URLs", ok: true },
       { label: "File upload (MP3, MP4, WAV…)", ok: true },
       { label: "AI-powered summary", ok: true },
@@ -55,7 +57,8 @@ const PLANS = [
     name: "Pro",
     icon: <Rocket className="w-5 h-5" />,
     monthlyPrice: 9.99,
-    annualPrice: 79.99,
+    annualPrice: 9.99,   // shown per-month when annual toggle active
+    annualTotal: 7.00,   // actual annual charge — special yearly deal
     description: "Unlimited power for heavy users",
     color: "border-amber-500/40",
     badge: "Best value",
@@ -70,7 +73,8 @@ const PLANS = [
       { label: "Priority processing queue", ok: true },
     ],
     cta: "Start Pro",
-    ctaStyle: "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white shadow-lg shadow-amber-500/20",
+    ctaStyle:
+      "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white shadow-lg shadow-amber-500/20",
   },
 ];
 
@@ -79,7 +83,7 @@ const COMPETITORS = [
   { name: "Veed.io",      monthly: "$18.00", facebook: false, srt: true   },
   { name: "Transkriptor", monthly: "$9.99",  facebook: false, srt: true   },
   { name: "Descript",     monthly: "$24.00", facebook: false, srt: false  },
-  { name: "Rev.com",      monthly: "Per min",facebook: false, srt: false  },
+  { name: "Rev.com",      monthly: "Per min", facebook: false, srt: false },
   { name: "TranscriptForge Pro", monthly: "$9.99", facebook: true, srt: true, us: true },
 ];
 
@@ -107,8 +111,10 @@ export default function Pricing() {
       <AppHeader />
 
       <main className="max-w-6xl mx-auto px-4 md:px-8 py-16">
-        {/* Back */}
-        <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-white mb-10 transition-colors">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-white mb-10 transition-colors"
+        >
           <ArrowLeft className="w-4 h-4" /> Back to app
         </Link>
 
@@ -126,9 +132,7 @@ export default function Pricing() {
 
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">
-            Simple, honest pricing
-          </h1>
+          <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">Simple, honest pricing</h1>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-8">
             Half the price of competitors — and we're the{" "}
             <span className="text-white font-medium">only tool</span> that reliably transcribes Facebook videos.
@@ -137,17 +141,25 @@ export default function Pricing() {
           {/* Billing toggle */}
           <div className="inline-flex items-center gap-3 bg-card border border-white/10 rounded-full p-1.5">
             <button
+              data-testid="button-toggle-monthly"
               onClick={() => setAnnual(false)}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${!annual ? "bg-primary text-white" : "text-muted-foreground hover:text-white"}`}
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+                !annual ? "bg-primary text-white" : "text-muted-foreground hover:text-white"
+              }`}
             >
               Monthly
             </button>
             <button
+              data-testid="button-toggle-annual"
               onClick={() => setAnnual(true)}
-              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${annual ? "bg-primary text-white" : "text-muted-foreground hover:text-white"}`}
+              className={`px-5 py-2 rounded-full text-sm font-medium transition-all ${
+                annual ? "bg-primary text-white" : "text-muted-foreground hover:text-white"
+              }`}
             >
               Annual
-              <span className="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Save ~33%</span>
+              <span className="ml-2 text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                Save big
+              </span>
             </button>
           </div>
         </div>
@@ -164,20 +176,28 @@ export default function Pricing() {
             >
               {plan.badge && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                    plan.key === "basic" ? "bg-blue-600 text-white" : "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
-                  }`}>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                      plan.key === "basic"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+                    }`}
+                  >
                     {plan.badge}
                   </span>
                 </div>
               )}
 
               <div className="flex items-center gap-3 mb-4">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  plan.key === "free" ? "bg-white/5" :
-                  plan.key === "basic" ? "bg-blue-500/15 text-blue-400" :
-                  "bg-amber-500/15 text-amber-400"
-                }`}>
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    plan.key === "free"
+                      ? "bg-white/5"
+                      : plan.key === "basic"
+                      ? "bg-blue-500/15 text-blue-400"
+                      : "bg-amber-500/15 text-amber-400"
+                  }`}
+                >
                   {plan.icon}
                 </div>
                 <div>
@@ -186,17 +206,29 @@ export default function Pricing() {
                 </div>
               </div>
 
+              {/* Price display */}
               <div className="mb-6">
                 {plan.monthlyPrice === 0 ? (
                   <p className="text-4xl font-bold">Free</p>
+                ) : annual && plan.key === "pro" ? (
+                  // Pro annual — special $7/year deal
+                  <>
+                    <p className="text-4xl font-bold">
+                      $7
+                      <span className="text-base font-normal text-muted-foreground">/year</span>
+                    </p>
+                    <p className="text-sm text-amber-400 font-medium mt-1">Full year for just $7 — best deal</p>
+                  </>
                 ) : (
                   <>
                     <p className="text-4xl font-bold">
-                      ${annual ? (plan.annualPrice / 12).toFixed(2) : plan.monthlyPrice.toFixed(2)}
+                      ${plan.monthlyPrice.toFixed(2)}
                       <span className="text-base font-normal text-muted-foreground">/mo</span>
                     </p>
-                    {annual && (
-                      <p className="text-sm text-muted-foreground">${plan.annualPrice.toFixed(2)} billed annually</p>
+                    {annual && plan.annualTotal > 0 && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        ${plan.annualTotal.toFixed(2)} billed annually
+                      </p>
                     )}
                   </>
                 )}
@@ -204,7 +236,12 @@ export default function Pricing() {
 
               <ul className="space-y-2.5 mb-8 flex-1">
                 {plan.features.map((f) => (
-                  <li key={f.label} className={`flex items-start gap-2.5 text-sm ${f.ok ? "text-white/80" : "text-muted-foreground/50"}`}>
+                  <li
+                    key={f.label}
+                    className={`flex items-start gap-2.5 text-sm ${
+                      f.ok ? "text-white/80" : "text-muted-foreground/50"
+                    }`}
+                  >
                     {f.ok ? (
                       <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
                     ) : (
@@ -226,12 +263,13 @@ export default function Pricing() {
                 <button
                   onClick={() => handleSubscribe(plan.key)}
                   disabled={checkoutMutation.isPending}
-                  className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${plan.ctaStyle}`}
                   data-testid={`button-subscribe-${plan.key}`}
+                  className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${plan.ctaStyle}`}
                 >
-                  {checkoutMutation.isPending && checkoutMutation.variables?.plan === plan.key && (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  )}
+                  {checkoutMutation.isPending &&
+                    checkoutMutation.variables?.plan === plan.key && (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    )}
                   {plan.cta}
                 </button>
               )}
@@ -256,20 +294,32 @@ export default function Pricing() {
               </thead>
               <tbody>
                 {COMPETITORS.map((c) => (
-                  <tr key={c.name} className={`border-b border-white/5 ${(c as any).us ? "bg-primary/5" : "hover:bg-white/2"}`}>
+                  <tr
+                    key={c.name}
+                    className={`border-b border-white/5 ${(c as any).us ? "bg-primary/5" : "hover:bg-white/2"}`}
+                  >
                     <td className={`px-6 py-3.5 font-medium ${(c as any).us ? "text-primary" : ""}`}>
-                      {c.name} {(c as any).us && <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">You</span>}
+                      {c.name}{" "}
+                      {(c as any).us && (
+                        <span className="ml-2 text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                          You
+                        </span>
+                      )}
                     </td>
                     <td className="text-center px-4 py-3.5 font-mono">{c.monthly}</td>
                     <td className="text-center px-4 py-3.5">
-                      {c.facebook
-                        ? <CheckCircle2 className="w-4 h-4 text-green-400 mx-auto" />
-                        : <X className="w-4 h-4 text-white/20 mx-auto" />}
+                      {c.facebook ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-400 mx-auto" />
+                      ) : (
+                        <X className="w-4 h-4 text-white/20 mx-auto" />
+                      )}
                     </td>
                     <td className="text-center px-4 py-3.5">
-                      {c.srt
-                        ? <CheckCircle2 className="w-4 h-4 text-green-400 mx-auto" />
-                        : <X className="w-4 h-4 text-white/20 mx-auto" />}
+                      {c.srt ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-400 mx-auto" />
+                      ) : (
+                        <X className="w-4 h-4 text-white/20 mx-auto" />
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -284,11 +334,15 @@ export default function Pricing() {
           {[
             {
               q: "Can I cancel anytime?",
-              a: "Yes. Cancel in one click — no questions asked. You keep Pro features until the end of your billing period.",
+              a: "Yes. Cancel in one click — no questions asked. You keep your plan features until the end of your billing period.",
             },
             {
               q: "How does the free tier work?",
-              a: "You get 3 transcripts per month, forever, at no cost. Ads are shown to keep the service running. Upgrade any time for more.",
+              a: "You get 10 transcripts every 28 days at no cost. Ads are shown to keep the service running. Upgrade anytime for more.",
+            },
+            {
+              q: "How does the 28-day reset work?",
+              a: "Your transcript count resets 28 days after your first transcript. This means everyone gets a consistent window regardless of which month they signed up.",
             },
             {
               q: "Why can you transcribe Facebook videos when others can't?",
@@ -298,15 +352,13 @@ export default function Pricing() {
               q: "What payment methods do you accept?",
               a: "All major credit and debit cards via Stripe. Your card details are never stored on our servers.",
             },
-            {
-              q: "How do I add ads to my own website?",
-              a: "If you're running your own instance of TranscriptForge, sign up for Google AdSense, get your publisher ID, and paste your ad unit code into the AdBanner component.",
-            },
           ].map((item) => (
             <details key={item.q} className="group border-b border-white/10 py-4 cursor-pointer">
               <summary className="font-medium list-none flex items-center justify-between gap-4 hover:text-white transition-colors">
                 {item.q}
-                <span className="text-muted-foreground group-open:rotate-45 transition-transform shrink-0 text-lg leading-none">+</span>
+                <span className="text-muted-foreground group-open:rotate-45 transition-transform shrink-0 text-lg leading-none">
+                  +
+                </span>
               </summary>
               <p className="text-muted-foreground text-sm mt-3 leading-relaxed">{item.a}</p>
             </details>
