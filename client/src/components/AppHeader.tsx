@@ -38,7 +38,7 @@ export function AppHeader() {
           <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
             <Zap className="w-4 h-4 text-white" />
           </div>
-          <span className="hidden sm:block font-bold">Master EJ Transcribe</span>
+          <span className="hidden sm:block font-bold">Master EJ</span>
         </Link>
 
         {/* Nav links */}

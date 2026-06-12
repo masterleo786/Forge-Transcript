@@ -23,7 +23,7 @@ export default function Login() {
             <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
-            Master EJ Transcribe
+            Master EJ Script Generator
           </div>
           <p className="text-muted-foreground text-sm mt-2">Welcome back</p>
         </div>

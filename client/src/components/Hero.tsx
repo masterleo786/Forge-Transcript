@@ -35,7 +35,7 @@ export function Hero() {
         transition={{ duration: 0.5, delay: 0.2 }}
         className="text-lg md:text-xl text-muted-foreground max-w-2xl mb-12 font-sans"
       >
-        Master EJ Transcribe extracts audio from Facebook, YouTube, TikTok, or your uploaded files, generating highly accurate transcripts and summaries instantly.
+        Master EJ Script Generator extracts audio from Facebook, YouTube, TikTok, or your uploaded files, generating highly accurate transcripts and summaries instantly.
       </motion.p>
 
       <motion.div 
