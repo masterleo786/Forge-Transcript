@@ -13,7 +13,7 @@ const PLANS = [
     monthlyPrice: 0,
     annualPrice: 0,
     annualTotal: 0,
-    description: "Try TranscriptForge at no cost",
+    description: "Try Master EJ Transcribe at no cost",
     color: "border-white/10",
     badge: null,
     features: [
@@ -84,7 +84,7 @@ const COMPETITORS = [
   { name: "Transkriptor", monthly: "$9.99",  facebook: false, srt: true   },
   { name: "Descript",     monthly: "$24.00", facebook: false, srt: false  },
   { name: "Rev.com",      monthly: "Per min", facebook: false, srt: false },
-  { name: "TranscriptForge Pro", monthly: "$9.99", facebook: true, srt: true, us: true },
+  { name: "Master EJ Pro", monthly: "$9.99", facebook: true, srt: true, us: true },
 ];
 
 export default function Pricing() {

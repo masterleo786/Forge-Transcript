@@ -16,7 +16,7 @@ export default function Register() {
   };
 
   const perks = [
-    "3 free transcripts every month",
+    "10 free transcripts every 28 days",
     "Facebook, YouTube, Instagram, TikTok",
     "AI-powered summaries",
     "TXT download",
@@ -31,7 +31,7 @@ export default function Register() {
             <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
-            TranscriptForge
+            Master EJ Transcribe
           </div>
           <p className="text-muted-foreground text-sm mt-2">Start for free — no credit card needed</p>
         </div>
