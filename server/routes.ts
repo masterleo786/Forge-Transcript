@@ -26,7 +26,7 @@ fs.mkdir(uploadDir, { recursive: true }).catch(console.error);
 
 const upload = multer({
   dest: uploadDir,
-  limits: { fileSize: 100 * 1024 * 1024 },
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB — supports 3+ hour videos
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -128,7 +128,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       res.status(201).json(transcript);
 
-      processUrlTranscription(transcript.id, input.url).catch(err => {
+      const language = input.language && input.language !== "auto" ? input.language : undefined;
+      processUrlTranscription(transcript.id, input.url, language).catch(err => {
         console.error("Background URL processing failed:", err);
       });
 
@@ -161,7 +162,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       res.status(201).json(transcript);
 
-      processFileTranscription(transcript.id, req.file.path, req.file.mimetype).catch(err => {
+      const fileLanguage = (req.body?.language && req.body.language !== "auto") ? req.body.language : undefined;
+      processFileTranscription(transcript.id, req.file.path, req.file.mimetype, fileLanguage).catch(err => {
         console.error("Background file processing failed:", err);
       });
 
@@ -284,13 +286,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
 // ─── Background: URL ──────────────────────────────────────────────────────────
 
-async function processUrlTranscription(id: number, url: string) {
+async function processUrlTranscription(id: number, url: string, language?: string) {
   try {
     await storage.updateTranscriptStatus(id, "processing");
 
     const { buffer: mediaBuffer, format, platform, title } = await extractMediaFromUrl(url);
     const { buffer: compatibleBuffer, format: compFormat } = await ensureCompatibleFormat(mediaBuffer);
-    const transcriptText = await transcribeAudio(compatibleBuffer, compFormat);
+    const transcriptText = await transcribeAudio(compatibleBuffer, compFormat, language);
     const summary = await generateSummary(transcriptText);
 
     const wordCount = transcriptText.split(/\s+/).length;
@@ -303,7 +305,7 @@ async function processUrlTranscription(id: number, url: string) {
       summary,
       wordCount,
       duration,
-      language: "en",
+      language: language || "auto",
     });
 
   } catch (error: any) {
@@ -314,7 +316,7 @@ async function processUrlTranscription(id: number, url: string) {
 
 // ─── Background: File ─────────────────────────────────────────────────────────
 
-async function processFileTranscription(id: number, filePath: string, mimeType: string) {
+async function processFileTranscription(id: number, filePath: string, mimeType: string, language?: string) {
   try {
     await storage.updateTranscriptStatus(id, "processing");
 
@@ -322,7 +324,7 @@ async function processFileTranscription(id: number, filePath: string, mimeType: 
     await fs.unlink(filePath).catch(console.error);
 
     const { buffer: compatibleBuffer, format: compFormat } = await ensureCompatibleFormat(fileBuffer);
-    const transcriptText = await transcribeAudio(compatibleBuffer, compFormat);
+    const transcriptText = await transcribeAudio(compatibleBuffer, compFormat, language);
     const summary = await generateSummary(transcriptText);
 
     const wordCount = transcriptText.split(/\s+/).length;
@@ -333,7 +335,7 @@ async function processFileTranscription(id: number, filePath: string, mimeType: 
       summary,
       wordCount,
       duration,
-      language: "en",
+      language: language || "auto",
     });
 
   } catch (error: any) {

@@ -37,7 +37,6 @@ export function useTranscript(id: number) {
     staleTime: 0,
     retry: 3,
     // Keep polling as long as there's no data yet OR status is still processing.
-    // Without the !data check, a momentary null response would stop polling forever.
     refetchInterval: (query) => {
       const data = query.state.data as TranscriptResponse | null | undefined;
       if (!data) return 3000;
@@ -52,19 +51,15 @@ export function useCreateFromUrl() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: CreateUrlRequest) => {
-      const validated = api.transcripts.createFromUrl.input.parse(data);
       const res = await fetch(api.transcripts.createFromUrl.path, {
         method: api.transcripts.createFromUrl.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(validated),
+        body: JSON.stringify(data),
         credentials: "include",
       });
       if (!res.ok) {
-        if (res.status === 400) {
-           const errorData = await res.json();
-           throw new Error(errorData.message || "Invalid URL");
-        }
-        throw new Error("Failed to start URL processing");
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to start transcription");
       }
       return await res.json() as TranscriptResponse;
     },
@@ -77,22 +72,22 @@ export function useCreateFromUrl() {
 export function useCreateFromFile() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({ file, language }: { file: File; language?: string }) => {
       const formData = new FormData();
       formData.append("file", file);
+      if (language && language !== "auto") {
+        formData.append("language", language);
+      }
 
       const res = await fetch(api.transcripts.createFromFile.path, {
         method: api.transcripts.createFromFile.method,
         body: formData,
         credentials: "include",
       });
-      
+
       if (!res.ok) {
-        if (res.status === 400) {
-           const errorData = await res.json();
-           throw new Error(errorData.message || "Invalid file");
-        }
-        throw new Error("Failed to upload file");
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to upload file");
       }
       return await res.json() as TranscriptResponse;
     },
@@ -107,9 +102,9 @@ export function useDeleteTranscript() {
   return useMutation({
     mutationFn: async (id: number) => {
       const url = buildUrl(api.transcripts.delete.path, { id });
-      const res = await fetch(url, { 
-        method: api.transcripts.delete.method, 
-        credentials: "include" 
+      const res = await fetch(url, {
+        method: api.transcripts.delete.method,
+        credentials: "include"
       });
       if (!res.ok) throw new Error("Failed to delete transcript");
     },

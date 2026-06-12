@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link2, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { PlatformIcon } from "./ui/platform-icon";
+import { LanguageSelector } from "./LanguageSelector";
 import { useCreateFromUrl } from "@/hooks/use-transcripts";
 import { useLocation } from "wouter";
 
 export function UrlIngestion() {
   const [url, setUrl] = useState("");
+  const [language, setLanguage] = useState("auto");
   const [detectedPlatform, setDetectedPlatform] = useState<string | null>(null);
   const createMutation = useCreateFromUrl();
   const [, setLocation] = useLocation();
@@ -25,16 +27,11 @@ export function UrlIngestion() {
     e.preventDefault();
     const trimmed = url.trim();
     if (!trimmed) return;
-
-    // Basic URL check — accept anything with http/https or www
-    const looksLikeUrl = trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("www.");
-    const urlToSubmit = looksLikeUrl && !trimmed.startsWith("http") ? `https://${trimmed}` : trimmed;
-
     createMutation.mutate(
-      { url: urlToSubmit },
+      { url: trimmed, language },
       {
         onSuccess: (data) => {
-          setUrl(""); // clear input after submit
+          setUrl("");
           setLocation(`/transcript/${data.id}`);
         },
       }
@@ -42,7 +39,14 @@ export function UrlIngestion() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full relative">
+    <form onSubmit={handleSubmit} className="w-full space-y-3">
+      {/* Language selector row */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-muted-foreground whitespace-nowrap">Transcript language:</span>
+        <LanguageSelector value={language} onChange={setLanguage} className="flex-1 max-w-xs" />
+      </div>
+
+      {/* URL input row */}
       <div className={`relative flex items-center transition-all duration-300 rounded-2xl ${createMutation.isPending ? "opacity-70 pointer-events-none" : ""}`}>
         <div className="absolute left-4 z-10 flex items-center justify-center">
           <AnimatePresence mode="wait">
@@ -64,14 +68,11 @@ export function UrlIngestion() {
           </AnimatePresence>
         </div>
 
-        {/* Use type="text" instead of type="url" — browser URL validation is too strict
-            and rejects some valid Facebook/social URLs. Backend validates instead. */}
         <input
           type="text"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onPaste={(e) => {
-            // On paste, immediately grab the pasted value so detection is instant
             const pasted = e.clipboardData.getData("text");
             if (pasted) setTimeout(() => setUrl(pasted.trim()), 0);
           }}
@@ -101,7 +102,7 @@ export function UrlIngestion() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="mt-4 p-4 bg-destructive/10 border border-destructive/30 rounded-xl flex items-start gap-3"
+            className="mt-2 p-4 bg-destructive/10 border border-destructive/30 rounded-xl flex items-start gap-3"
           >
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-400" />
             <div>

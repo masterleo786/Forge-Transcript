@@ -34,21 +34,22 @@ export const api = {
     createFromUrl: {
       method: 'POST' as const,
       path: '/api/transcripts/url' as const,
-      input: z.object({ url: z.string().url() }),
+      input: z.object({
+        url: z.string().min(1, "URL is required"),
+        language: z.string().optional(), // ISO 639-1 code or "auto"
+      }),
       responses: {
         201: z.custom<typeof transcripts.$inferSelect>(),
         400: errorSchemas.validation,
       },
     },
-    // We will use standard multipart form data for file uploads to /api/transcripts/file
     createFromFile: {
-        method: 'POST' as const,
-        path: '/api/transcripts/file' as const,
-        // Using any since frontend sends FormData, not JSON
-        responses: {
-            201: z.custom<typeof transcripts.$inferSelect>(),
-            400: errorSchemas.validation,
-        }
+      method: 'POST' as const,
+      path: '/api/transcripts/file' as const,
+      responses: {
+        201: z.custom<typeof transcripts.$inferSelect>(),
+        400: errorSchemas.validation,
+      }
     },
     delete: {
       method: 'DELETE' as const,
