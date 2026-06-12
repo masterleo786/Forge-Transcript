@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { CheckCircle2, X, Zap, Crown, Rocket, ArrowLeft, Loader2 } from "lucide-react";
+import { CheckCircle2, X, Zap, Crown, Rocket, ArrowLeft, Loader2, Heart } from "lucide-react";
 import { useUser, useStartCheckout } from "@/hooks/use-auth";
 import { AppHeader } from "@/components/AppHeader";
 import { motion } from "framer-motion";
@@ -327,6 +327,48 @@ export default function Pricing() {
             </table>
           </div>
         </div>
+
+        {/* Founder's Note */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="mb-16 max-w-3xl mx-auto"
+        >
+          <div className="relative glass-card rounded-2xl p-8 md:p-10 border border-white/10 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-amber-500/5 pointer-events-none" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
+                  <Heart className="w-5 h-5 text-red-400" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-lg">Why is this so affordable?</h2>
+                  <p className="text-xs text-muted-foreground">A note from the founder</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 text-muted-foreground leading-relaxed">
+                <p>
+                  Every other tool charges <span className="text-white font-medium">$10–$20 per month</span>. We charge $2.50.
+                  People ask — <em>"Is it cheap because it's low quality?"</em>
+                </p>
+                <p>
+                  No. It's cheap because <span className="text-white font-medium">I know what it feels like when $10 is a lot of money.</span> I've been there myself. I built this for the student in Pakistan transcribing lectures at midnight. The small creator in the Philippines subtitling their first video. The journalist in Nigeria who can't afford the big platforms. The single mum in Australia repurposing content between school runs.
+                </p>
+                <p>
+                  These tools exist on the internet — they should be for <span className="text-white font-medium">everyone</span>, not just people who can afford a $20/month subscription.
+                </p>
+                <p>
+                  Master EJ Script Generator is <span className="text-white font-medium">better than most competitors</span> — better price, real Facebook support, 70+ languages, 3-hour video support. We didn't cut corners to cut the price. We just decided that access matters more than margin.
+                </p>
+                <p className="text-white/60 text-sm pt-2 border-t border-white/10">
+                  If you can afford more, upgrading helps keep this service alive for those who can't. Either way — you're welcome here.
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
 
         {/* FAQ */}
         <div className="max-w-2xl mx-auto">

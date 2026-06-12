@@ -59,8 +59,8 @@ function ComparisonStrip() {
   const items = [
     {
       icon: <DollarSign className="w-5 h-5 text-green-400" />,
-      title: "8× cheaper than TurboScribe",
-      desc: "From $2.50/mo vs $20/mo competitors",
+      title: "8× cheaper than competitors",
+      desc: "Priced for everyone — not just those who can afford $20/mo",
     },
     {
       icon: <Languages className="w-5 h-5 text-blue-400" />,
