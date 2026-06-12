@@ -7,20 +7,22 @@ import { AppHeader } from "@/components/AppHeader";
 import { AdBanner } from "@/components/AdBanner";
 import { motion } from "framer-motion";
 import { useUser, useUsage } from "@/hooks/use-auth";
-import { Zap, Facebook, Youtube, Instagram, Globe, Crown, AlertTriangle } from "lucide-react";
+import {
+  Zap, Facebook, Youtube, Instagram, Globe, Crown, AlertTriangle,
+  Globe2, Clock, DollarSign, Languages, FileVideo, CheckCircle2,
+} from "lucide-react";
 import { SiTiktok } from "react-icons/si";
 
 function Hero() {
   return (
     <div className="text-center py-14 md:py-20 relative">
-      {/* Glow blob */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/10 rounded-full blur-[100px]" />
       </div>
 
       <div className="relative z-10">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
-          <Zap className="w-3.5 h-3.5" /> Facebook-first transcript engine
+          <Zap className="w-3.5 h-3.5" /> Powered by OpenAI Whisper — 70+ languages
         </div>
 
         <h1 className="text-4xl md:text-6xl font-display font-bold leading-tight mb-4">
@@ -30,7 +32,7 @@ function Hero() {
         </h1>
 
         <p className="text-muted-foreground text-lg md:text-xl max-w-xl mx-auto mb-8">
-          Paste a public URL or upload a file. Get a clean transcript, AI summary, and subtitle file — instantly.
+          Paste a public URL or upload a file. Get a clean transcript, AI summary, and subtitle file — in any language.
         </p>
 
         {/* Platform badges */}
@@ -42,14 +44,51 @@ function Hero() {
             { icon: <SiTiktok className="w-4 h-4" />, label: "TikTok", color: "text-white" },
             { icon: <Globe className="w-4 h-4" />, label: "File upload", color: "text-muted-foreground" },
           ].map((p) => (
-            <span
-              key={p.label}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-sm ${p.color}`}
-            >
+            <span key={p.label}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-sm ${p.color}`}>
               {p.icon} {p.label}
             </span>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ComparisonStrip() {
+  const items = [
+    {
+      icon: <DollarSign className="w-5 h-5 text-green-400" />,
+      title: "8× cheaper than TurboScribe",
+      desc: "From $2.50/mo vs $20/mo competitors",
+    },
+    {
+      icon: <Languages className="w-5 h-5 text-blue-400" />,
+      title: "70+ languages",
+      desc: "Urdu, Chinese, Hindi, Arabic & more",
+    },
+    {
+      icon: <FileVideo className="w-5 h-5 text-purple-400" />,
+      title: "3+ hour videos",
+      desc: "500 MB uploads with auto-chunking",
+    },
+    {
+      icon: <Clock className="w-5 h-5 text-amber-400" />,
+      title: "Real timestamps",
+      desc: "SRT & VTT with accurate timecodes",
+    },
+  ];
+
+  return (
+    <div className="max-w-4xl mx-auto mt-4 mb-12 px-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {items.map((item) => (
+          <div key={item.title} className="glass-card rounded-xl p-4 flex flex-col gap-2 border border-white/5 hover:border-white/10 transition-colors">
+            <div className="p-2 bg-white/5 rounded-lg w-fit">{item.icon}</div>
+            <p className="text-sm font-semibold text-white leading-snug">{item.title}</p>
+            <p className="text-xs text-muted-foreground leading-snug">{item.desc}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -72,14 +111,14 @@ function UsageLimitBanner({ used, limit, plan }: { used: number; limit: number; 
       <AlertTriangle className="w-4 h-4 shrink-0" />
       {remaining === 0 ? (
         <>
-          <span className="flex-1">You've used all 3 free transcripts this month.</span>
+          <span className="flex-1">You've used all {limit} free transcripts this period.</span>
           <Link href="/pricing" className="flex items-center gap-1 font-semibold hover:underline shrink-0">
             <Crown className="w-3.5 h-3.5" /> Upgrade
           </Link>
         </>
       ) : (
         <>
-          <span className="flex-1">1 free transcript remaining this month.</span>
+          <span className="flex-1">1 free transcript remaining this period.</span>
           <Link href="/pricing" className="flex items-center gap-1 font-semibold hover:underline shrink-0">
             <Crown className="w-3.5 h-3.5" /> Upgrade for more
           </Link>
@@ -100,7 +139,6 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <AppHeader />
 
-      {/* Top ad banner for free / guest users */}
       {showAds && (
         <div className="max-w-4xl mx-auto px-4 pt-4">
           <AdBanner slot="top" />
@@ -113,11 +151,7 @@ export default function Home() {
         {/* Usage warning */}
         {usage && (
           <div className="max-w-2xl mx-auto w-full">
-            <UsageLimitBanner
-              used={usage.used}
-              limit={usage.limit}
-              plan={usage.plan}
-            />
+            <UsageLimitBanner used={usage.used} limit={usage.limit} plan={usage.plan} />
           </div>
         )}
 
@@ -162,9 +196,11 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Competitive comparison strip */}
+        <ComparisonStrip />
+
         <Dashboard />
 
-        {/* Bottom ad for free users */}
         {showAds && (
           <div className="max-w-4xl mx-auto pb-12">
             <AdBanner slot="bottom" />

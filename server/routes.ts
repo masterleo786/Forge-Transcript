@@ -292,16 +292,17 @@ async function processUrlTranscription(id: number, url: string, language?: strin
 
     const { buffer: mediaBuffer, format, platform, title } = await extractMediaFromUrl(url);
     const { buffer: compatibleBuffer, format: compFormat } = await ensureCompatibleFormat(mediaBuffer);
-    const transcriptText = await transcribeAudio(compatibleBuffer, compFormat, language);
-    const summary = await generateSummary(transcriptText);
+    const { text, srtContent, duration: audioDuration } = await transcribeAudio(compatibleBuffer, compFormat, language);
+    const summary = await generateSummary(text);
 
-    const wordCount = transcriptText.split(/\s+/).length;
-    const duration = Math.round((wordCount / 150) * 60);
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    const duration = audioDuration > 0 ? Math.round(audioDuration) : Math.round((wordCount / 150) * 60);
 
     await storage.updateTranscriptResult(id, {
       title: title || "Video",
       platform,
-      content: transcriptText,
+      content: text,
+      srtContent,
       summary,
       wordCount,
       duration,
@@ -324,14 +325,15 @@ async function processFileTranscription(id: number, filePath: string, mimeType: 
     await fs.unlink(filePath).catch(console.error);
 
     const { buffer: compatibleBuffer, format: compFormat } = await ensureCompatibleFormat(fileBuffer);
-    const transcriptText = await transcribeAudio(compatibleBuffer, compFormat, language);
-    const summary = await generateSummary(transcriptText);
+    const { text, srtContent, duration: audioDuration } = await transcribeAudio(compatibleBuffer, compFormat, language);
+    const summary = await generateSummary(text);
 
-    const wordCount = transcriptText.split(/\s+/).length;
-    const duration = Math.round((wordCount / 150) * 60);
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    const duration = audioDuration > 0 ? Math.round(audioDuration) : Math.round((wordCount / 150) * 60);
 
     await storage.updateTranscriptResult(id, {
-      content: transcriptText,
+      content: text,
+      srtContent,
       summary,
       wordCount,
       duration,
