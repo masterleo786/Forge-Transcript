@@ -114,7 +114,7 @@ async function transcribeChunk(
 ): Promise<{ text: string; segments: Array<{ start: number; end: number; text: string }>; duration: number }> {
   const params: any = {
     file: await toFile(buffer, `audio.${format}`),
-    model: "gpt-4o-mini-transcribe",
+    model: "whisper-1",
     response_format: "verbose_json",
   };
   if (language && language !== "auto") params.language = language;

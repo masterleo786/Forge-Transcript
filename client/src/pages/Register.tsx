@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Zap, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Zap, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { useRegister } from "@/hooks/use-auth";
 
 export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [agreed, setAgreed] = useState(false);
   const [, navigate] = useLocation();
   const registerMutation = useRegister();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!agreed) return;
     registerMutation.mutate({ name, email, password }, { onSuccess: () => navigate("/") });
   };
 
@@ -25,7 +28,6 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 font-display font-bold text-2xl mb-2">
             <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
@@ -39,7 +41,6 @@ export default function Register() {
         <div className="glass-card rounded-2xl p-8">
           <h1 className="text-xl font-semibold mb-2">Create your account</h1>
 
-          {/* Perks */}
           <ul className="space-y-1.5 mb-6">
             {perks.map((perk) => (
               <li key={perk} className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -58,7 +59,9 @@ export default function Register() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">Name <span className="text-muted-foreground">(optional)</span></label>
+              <label className="block text-sm font-medium mb-1.5">
+                Name <span className="text-muted-foreground">(optional)</span>
+              </label>
               <input
                 type="text"
                 value={name}
@@ -85,32 +88,56 @@ export default function Register() {
 
             <div>
               <label className="block text-sm font-medium mb-1.5">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  placeholder="At least 6 characters"
+                  data-testid="input-password"
+                  className="w-full px-4 py-2.5 pr-12 rounded-lg bg-black/30 border border-white/10 text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  data-testid="button-toggle-password"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 pt-1">
               <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                id="agree-terms"
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
                 required
-                minLength={6}
-                placeholder="At least 6 characters"
-                data-testid="input-password"
-                className="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
+                data-testid="checkbox-agree-terms"
+                className="mt-0.5 w-4 h-4 rounded border border-white/20 bg-black/30 accent-primary cursor-pointer shrink-0"
               />
+              <label htmlFor="agree-terms" className="text-xs text-muted-foreground leading-relaxed cursor-pointer select-none">
+                I agree to the{" "}
+                <span className="text-primary hover:underline">Terms of Service</span> and{" "}
+                <span className="text-primary hover:underline">Privacy Policy</span>
+              </label>
             </div>
 
             <button
               type="submit"
-              disabled={registerMutation.isPending}
+              disabled={registerMutation.isPending || !agreed}
               data-testid="button-register-submit"
-              className="w-full py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+              className="w-full py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
             >
               {registerMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
               Create free account
             </button>
           </form>
-
-          <p className="text-center text-xs text-muted-foreground mt-4">
-            By signing up you agree to our Terms of Service.
-          </p>
 
           <p className="text-center text-sm text-muted-foreground mt-4">
             Already have an account?{" "}
