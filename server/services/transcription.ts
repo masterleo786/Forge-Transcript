@@ -40,12 +40,14 @@ function pad(n: number, len = 2): string {
 }
 
 function buildSrt(segments: Array<{ start: number; end: number; text: string }>): string {
+  if (!segments.length) return "";
   return segments
     .map((seg, i) => `${i + 1}\n${toSrtTime(seg.start)} --> ${toSrtTime(seg.end)}\n${seg.text.trim()}\n`)
     .join("\n");
 }
 
 function buildVtt(segments: Array<{ start: number; end: number; text: string }>): string {
+  if (!segments.length) return "";
   const lines = ["WEBVTT", ""];
   for (const seg of segments) {
     lines.push(`${toVttTime(seg.start)} --> ${toVttTime(seg.end)}`);
@@ -104,7 +106,7 @@ function spawnAsync(cmd: string, args: string[]): Promise<void> {
   });
 }
 
-// ─── Transcribe a single chunk with verbose_json (real timestamps) ────────────
+// ─── Transcribe a single chunk — tries whisper-1 (timestamps), falls back to gpt-4o-mini-transcribe ────
 
 async function transcribeChunk(
   buffer: Buffer,
@@ -112,27 +114,47 @@ async function transcribeChunk(
   language: string | undefined,
   timeOffset: number = 0
 ): Promise<{ text: string; segments: Array<{ start: number; end: number; text: string }>; duration: number }> {
-  const params: any = {
-    file: await toFile(buffer, `audio.${format}`),
-    model: "whisper-1",
-    response_format: "verbose_json",
-  };
-  if (language && language !== "auto") params.language = language;
 
-  const response = await openai.audio.transcriptions.create(params) as any;
+  // PRIMARY: whisper-1 with verbose_json gives real word-level timestamps
+  try {
+    const params: any = {
+      file: await toFile(buffer, `audio.${format}`),
+      model: "whisper-1",
+      response_format: "verbose_json",
+    };
+    if (language && language !== "auto") params.language = language;
 
-  const rawSegments: Array<{ start: number; end: number; text: string }> =
-    (response.segments || []).map((s: any) => ({
-      start: s.start + timeOffset,
-      end: s.end + timeOffset,
-      text: s.text,
-    }));
+    const response = await openai.audio.transcriptions.create(params) as any;
 
-  return {
-    text: response.text || "",
-    segments: rawSegments,
-    duration: (response.duration || 0) + timeOffset,
-  };
+    const rawSegments: Array<{ start: number; end: number; text: string }> =
+      (response.segments || []).map((s: any) => ({
+        start: s.start + timeOffset,
+        end: s.end + timeOffset,
+        text: s.text,
+      }));
+
+    return {
+      text: response.text || "",
+      segments: rawSegments,
+      duration: (response.duration || 0) + timeOffset,
+    };
+  } catch (primaryErr: any) {
+    // FALLBACK: gpt-4o-mini-transcribe with plain json (no timestamps, but transcription still works)
+    console.warn(`[transcription] whisper-1 failed (${primaryErr?.message}), falling back to gpt-4o-mini-transcribe`);
+    const fallbackParams: any = {
+      file: await toFile(buffer, `audio.${format}`),
+      model: "gpt-4o-mini-transcribe",
+      response_format: "json",
+    };
+    if (language && language !== "auto") fallbackParams.language = language;
+
+    const response = await openai.audio.transcriptions.create(fallbackParams) as any;
+    return {
+      text: response.text || "",
+      segments: [],
+      duration: 0,
+    };
+  }
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
@@ -183,19 +205,25 @@ export async function transcribeAudio(
   };
 }
 
-// ─── Summary ─────────────────────────────────────────────────────────────────
+// ─── Summary — uses gpt-4o-mini, never throws (returns empty string on failure) ──
 
 export async function generateSummary(transcript: string): Promise<string> {
-  const response = await openai.chat.completions.create({
-    model: "gpt-5.2",
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a helpful assistant that summarizes transcripts concisely. Return only the summary text without any markdown or conversational filler.",
-      },
-      { role: "user", content: `Please summarize the following transcript:\n\n${transcript}` },
-    ],
-  });
-  return response.choices[0]?.message?.content || "No summary available.";
+  if (!transcript || transcript.trim().length < 20) return "";
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a helpful assistant that summarizes transcripts concisely. Return only the summary text without any markdown or conversational filler.",
+        },
+        { role: "user", content: `Please summarize the following transcript:\n\n${transcript.slice(0, 12000)}` },
+      ],
+    });
+    return response.choices[0]?.message?.content || "";
+  } catch (err: any) {
+    console.error("[summary] generateSummary failed:", err?.message);
+    return ""; // Never crash the transcript over a summary failure
+  }
 }

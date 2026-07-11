@@ -52,7 +52,7 @@ export function AppHeader() {
           {/* Usage meter — only shown when logged in */}
           {user && usage && (
             <div className="hidden sm:flex items-center gap-2 text-xs">
-              <span className="text-muted-foreground">{used}/{limit === 999 ? "∞" : limit}</span>
+              <span className="text-muted-foreground">{used}/{limit >= 9999 ? "∞" : limit}</span>
               <div className="w-20 h-1.5 rounded-full bg-white/10 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-primary transition-all"
