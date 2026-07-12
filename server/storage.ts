@@ -22,6 +22,7 @@ export interface IStorage {
   createUser(user: InsertUser & { password: string }): Promise<User>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserById(id: number): Promise<User | undefined>;
+  findOrCreateOAuthUser(email: string, name?: string): Promise<User>;
   updateUserPlan(id: number, plan: UserPlan, stripeData?: Partial<User>): Promise<User>;
   incrementTranscriptUsage(userId: number): Promise<void>;
   resetMonthlyUsageIfNeeded(userId: number): Promise<void>;
@@ -91,6 +92,21 @@ export class DatabaseStorage implements IStorage {
       email: data.email,
       password: data.password,
       name: data.name,
+      plan: "free",
+    }).returning();
+    return user;
+  }
+
+  async findOrCreateOAuthUser(email: string, name?: string): Promise<User> {
+    const existing = await this.getUserByEmail(email);
+    if (existing) return existing;
+    // Create with a random unusable password — OAuth users never use password login
+    const randomPw = await import("crypto").then(c => c.randomBytes(32).toString("hex"));
+    const hashed = await import("bcrypt").then(b => b.hash(randomPw, 10));
+    const [user] = await db.insert(users).values({
+      email,
+      password: hashed,
+      name: name ?? email.split("@")[0],
       plan: "free",
     }).returning();
     return user;

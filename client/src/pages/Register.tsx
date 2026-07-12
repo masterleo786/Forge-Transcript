@@ -1,7 +1,41 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Zap, Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { SiGoogle, SiGithub } from "react-icons/si";
 import { useRegister } from "@/hooks/use-auth";
+
+function OAuthButtons({ providers }: { providers: { google: boolean; github: boolean } }) {
+  if (!providers.google && !providers.github) return null;
+  return (
+    <div className="space-y-2 mb-5">
+      {providers.google && (
+        <a
+          href="/auth/google"
+          data-testid="button-google-register"
+          className="flex items-center justify-center gap-3 w-full py-2.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-sm font-medium"
+        >
+          <SiGoogle className="w-4 h-4 text-red-400" />
+          Continue with Google
+        </a>
+      )}
+      {providers.github && (
+        <a
+          href="/auth/github"
+          data-testid="button-github-register"
+          className="flex items-center justify-center gap-3 w-full py-2.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-sm font-medium"
+        >
+          <SiGithub className="w-4 h-4" />
+          Continue with GitHub
+        </a>
+      )}
+      <div className="flex items-center gap-3 mt-4">
+        <div className="flex-1 h-px bg-white/10" />
+        <span className="text-xs text-muted-foreground">or sign up with email</span>
+        <div className="flex-1 h-px bg-white/10" />
+      </div>
+    </div>
+  );
+}
 
 export default function Register() {
   const [name, setName] = useState("");
@@ -9,8 +43,16 @@ export default function Register() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [providers, setProviders] = useState({ google: false, github: false });
   const [, navigate] = useLocation();
   const registerMutation = useRegister();
+
+  useEffect(() => {
+    fetch("/api/auth/providers")
+      .then((r) => r.json())
+      .then(setProviders)
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +83,7 @@ export default function Register() {
         <div className="glass-card rounded-2xl p-8">
           <h1 className="text-xl font-semibold mb-2">Create your account</h1>
 
-          <ul className="space-y-1.5 mb-6">
+          <ul className="space-y-1.5 mb-5">
             {perks.map((perk) => (
               <li key={perk} className="flex items-center gap-2 text-sm text-muted-foreground">
                 <CheckCircle2 className="w-3.5 h-3.5 text-green-400 shrink-0" />
@@ -49,6 +91,8 @@ export default function Register() {
               </li>
             ))}
           </ul>
+
+          <OAuthButtons providers={providers} />
 
           {registerMutation.isError && (
             <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg mb-4 text-sm text-red-400">
@@ -66,6 +110,7 @@ export default function Register() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
                 placeholder="Your name"
                 data-testid="input-name"
                 className="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
@@ -79,7 +124,7 @@ export default function Register() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                autoFocus
+                autoComplete="email"
                 placeholder="you@example.com"
                 data-testid="input-email"
                 className="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-white/10 text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
@@ -95,6 +140,7 @@ export default function Register() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
+                  autoComplete="new-password"
                   placeholder="At least 6 characters"
                   data-testid="input-password"
                   className="w-full px-4 py-2.5 pr-12 rounded-lg bg-black/30 border border-white/10 text-white placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"

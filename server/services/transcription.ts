@@ -7,7 +7,7 @@ import { randomUUID } from "crypto";
 import path from "path";
 import os from "os";
 
-const MAX_CHUNK_BYTES = 20 * 1024 * 1024; // 20 MB — safely under OpenAI's 25 MB limit
+const MAX_CHUNK_BYTES = 20 * 1024 * 1024;
 
 export interface TranscriptionResult {
   text: string;
@@ -16,8 +16,6 @@ export interface TranscriptionResult {
   duration: number;
   segments: Array<{ start: number; end: number; text: string }>;
 }
-
-// ─── Time formatting ──────────────────────────────────────────────────────────
 
 function toSrtTime(s: number): string {
   const h = Math.floor(s / 3600);
@@ -57,8 +55,6 @@ function buildVtt(segments: Array<{ start: number; end: number; text: string }>)
   return lines.join("\n");
 }
 
-// ─── Compress audio to 32 kbps mono MP3 ──────────────────────────────────────
-
 async function compressAudio(buffer: Buffer, inputFormat: string): Promise<Buffer> {
   const inputPath = path.join(os.tmpdir(), `compress-in-${randomUUID()}.${inputFormat}`);
   const outputPath = path.join(os.tmpdir(), `compress-out-${randomUUID()}.mp3`);
@@ -71,8 +67,6 @@ async function compressAudio(buffer: Buffer, inputFormat: string): Promise<Buffe
     await unlink(outputPath).catch(() => {});
   }
 }
-
-// ─── Split compressed audio into 10-min chunks ───────────────────────────────
 
 async function splitIntoChunks(buffer: Buffer): Promise<Buffer[]> {
   const id = randomUUID();
@@ -106,7 +100,19 @@ function spawnAsync(cmd: string, args: string[]): Promise<void> {
   });
 }
 
-// ─── Transcribe a single chunk — tries whisper-1 (timestamps), falls back to gpt-4o-mini-transcribe ────
+// Map any non-standard codes to valid Whisper ISO 639-1 codes
+function normaliseLanguage(lang: string | undefined): string | undefined {
+  if (!lang || lang === "auto") return undefined;
+  const map: Record<string, string> = {
+    "zh-yue": "zh",
+    "zh-cantonese": "zh",
+  };
+  return map[lang] ?? lang;
+}
+
+// Prompt that stops either model from translating into a different language
+const TRANSCRIPTION_PROMPT =
+  "Transcribe the audio exactly as spoken. Keep the original language — do not translate.";
 
 async function transcribeChunk(
   buffer: Buffer,
@@ -115,16 +121,21 @@ async function transcribeChunk(
   timeOffset: number = 0
 ): Promise<{ text: string; segments: Array<{ start: number; end: number; text: string }>; duration: number }> {
 
-  // PRIMARY: whisper-1 with verbose_json gives real word-level timestamps
+  const lang = normaliseLanguage(language);
+
+  // PRIMARY: whisper-1 with verbose_json — gives real timestamps
   try {
     const params: any = {
       file: await toFile(buffer, `audio.${format}`),
       model: "whisper-1",
       response_format: "verbose_json",
+      prompt: TRANSCRIPTION_PROMPT,
     };
-    if (language && language !== "auto") params.language = language;
+    if (lang) params.language = lang;
 
     const response = await openai.audio.transcriptions.create(params) as any;
+
+    if (!response?.text) throw new Error("Empty response from whisper-1");
 
     const rawSegments: Array<{ start: number; end: number; text: string }> =
       (response.segments || []).map((s: any) => ({
@@ -134,30 +145,32 @@ async function transcribeChunk(
       }));
 
     return {
-      text: response.text || "",
+      text: response.text,
       segments: rawSegments,
       duration: (response.duration || 0) + timeOffset,
     };
   } catch (primaryErr: any) {
-    // FALLBACK: gpt-4o-mini-transcribe with plain json (no timestamps, but transcription still works)
-    console.warn(`[transcription] whisper-1 failed (${primaryErr?.message}), falling back to gpt-4o-mini-transcribe`);
+    console.warn(`[transcription] whisper-1 failed (${primaryErr?.message}), trying gpt-4o-mini-transcribe`);
+  }
+
+  // FALLBACK: gpt-4o-mini-transcribe — no timestamps but reliable transcription
+  try {
     const fallbackParams: any = {
       file: await toFile(buffer, `audio.${format}`),
       model: "gpt-4o-mini-transcribe",
-      response_format: "json",
+      response_format: "text",
+      prompt: TRANSCRIPTION_PROMPT,
     };
-    if (language && language !== "auto") fallbackParams.language = language;
+    if (lang) fallbackParams.language = lang;
 
     const response = await openai.audio.transcriptions.create(fallbackParams) as any;
-    return {
-      text: response.text || "",
-      segments: [],
-      duration: 0,
-    };
+    const text = typeof response === "string" ? response : (response?.text || "");
+
+    return { text, segments: [], duration: 0 };
+  } catch (fallbackErr: any) {
+    throw new Error(`Transcription failed: ${fallbackErr?.message}`);
   }
 }
-
-// ─── Main export ─────────────────────────────────────────────────────────────
 
 export async function transcribeAudio(
   audioBuffer: Buffer,
@@ -167,13 +180,11 @@ export async function transcribeAudio(
   let buf = audioBuffer;
   let fmt = format;
 
-  // Step 1: Compress if large
   if (buf.length > MAX_CHUNK_BYTES) {
     buf = await compressAudio(buf, format);
     fmt = "mp3";
   }
 
-  // Step 2: If still large, split into 10-min chunks
   if (buf.length > MAX_CHUNK_BYTES) {
     const chunks = await splitIntoChunks(buf);
     const CHUNK_SECONDS = 600;
@@ -194,7 +205,6 @@ export async function transcribeAudio(
     };
   }
 
-  // Step 3: Single chunk
   const result = await transcribeChunk(buf, fmt, language, 0);
   return {
     text: result.text,
@@ -205,8 +215,6 @@ export async function transcribeAudio(
   };
 }
 
-// ─── Summary — uses gpt-4o-mini, never throws (returns empty string on failure) ──
-
 export async function generateSummary(transcript: string): Promise<string> {
   if (!transcript || transcript.trim().length < 20) return "";
   try {
@@ -216,14 +224,14 @@ export async function generateSummary(transcript: string): Promise<string> {
         {
           role: "system",
           content:
-            "You are a helpful assistant that summarizes transcripts concisely. Return only the summary text without any markdown or conversational filler.",
+            "You are a helpful assistant that summarizes transcripts concisely. Respond in the same language as the transcript. Return only the summary text without any markdown or conversational filler.",
         },
-        { role: "user", content: `Please summarize the following transcript:\n\n${transcript.slice(0, 12000)}` },
+        { role: "user", content: `Summarize this transcript:\n\n${transcript.slice(0, 12000)}` },
       ],
     });
     return response.choices[0]?.message?.content || "";
   } catch (err: any) {
     console.error("[summary] generateSummary failed:", err?.message);
-    return ""; // Never crash the transcript over a summary failure
+    return "";
   }
 }

@@ -1,11 +1,12 @@
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { Strategy as GitHubStrategy } from "passport-github2";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import bcrypt from "bcrypt";
 import { type Express } from "express";
 import { storage } from "./storage";
-import { type User } from "@shared/schema";
 
 declare global {
   namespace Express {
@@ -14,6 +15,15 @@ declare global {
 }
 
 const PgSession = connectPg(session);
+
+function getBaseUrl(req: any): string {
+  // Use the deployed domain if available, otherwise derive from request
+  const host = process.env.REPLIT_DOMAINS
+    ? process.env.REPLIT_DOMAINS.split(",")[0]
+    : req?.get("host");
+  const proto = process.env.NODE_ENV === "production" ? "https" : (req?.protocol ?? "https");
+  return `${proto}://${host}`;
+}
 
 export function setupAuth(app: Express) {
   app.use(
@@ -29,13 +39,15 @@ export function setupAuth(app: Express) {
       cookie: {
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        maxAge: 30 * 24 * 60 * 60 * 1000,
       },
     })
   );
 
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // ─── Local Strategy ─────────────────────────────────────────────────────────
 
   passport.use(
     new LocalStrategy({ usernameField: "email" }, async (email, password, done) => {
@@ -52,6 +64,70 @@ export function setupAuth(app: Express) {
     })
   );
 
+  // ─── Google Strategy ────────────────────────────────────────────────────────
+
+  const googleClientId = process.env.GOOGLE_CLIENT_ID;
+  const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (googleClientId && googleClientSecret) {
+    passport.use(
+      new GoogleStrategy(
+        {
+          clientID: googleClientId,
+          clientSecret: googleClientSecret,
+          callbackURL: "/auth/google/callback",
+          scope: ["profile", "email"],
+        },
+        async (_accessToken, _refreshToken, profile, done) => {
+          try {
+            const email = profile.emails?.[0]?.value;
+            if (!email) return done(new Error("No email from Google"));
+            const name = profile.displayName || profile.emails?.[0]?.value?.split("@")[0];
+            const user = await storage.findOrCreateOAuthUser(email.toLowerCase(), name);
+            const { password: _pw, ...safeUser } = user;
+            return done(null, safeUser as Express.User);
+          } catch (err) {
+            return done(err as Error);
+          }
+        }
+      )
+    );
+  }
+
+  // ─── GitHub Strategy ────────────────────────────────────────────────────────
+
+  const githubClientId = process.env.GITHUB_CLIENT_ID;
+  const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+  if (githubClientId && githubClientSecret) {
+    passport.use(
+      new GitHubStrategy(
+        {
+          clientID: githubClientId,
+          clientSecret: githubClientSecret,
+          callbackURL: "/auth/github/callback",
+          scope: ["user:email"],
+        },
+        async (_accessToken: string, _refreshToken: string, profile: any, done: any) => {
+          try {
+            const email =
+              profile.emails?.find((e: any) => e.primary)?.value ||
+              profile.emails?.[0]?.value;
+            if (!email) return done(new Error("No email from GitHub — make sure your GitHub email is public"));
+            const name = profile.displayName || profile.username;
+            const user = await storage.findOrCreateOAuthUser(email.toLowerCase(), name);
+            const { password: _pw, ...safeUser } = user;
+            return done(null, safeUser as Express.User);
+          } catch (err) {
+            return done(err as Error);
+          }
+        }
+      )
+    );
+  }
+
+  // ─── Serialize / Deserialize ────────────────────────────────────────────────
+
   passport.serializeUser((user, done) => done(null, (user as any).id));
 
   passport.deserializeUser(async (id: number, done) => {
@@ -65,7 +141,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // ─── Auth Routes ────────────────────────────────────────────────────────────
+  // ─── Local Auth Routes ───────────────────────────────────────────────────────
 
   app.post("/api/register", async (req, res) => {
     try {
@@ -108,6 +184,43 @@ export function setupAuth(app: Express) {
   app.get("/api/me", (req, res) => {
     if (!req.isAuthenticated()) return res.status(401).json({ message: "Not authenticated" });
     res.json(req.user);
+  });
+
+  // ─── Google OAuth Routes ─────────────────────────────────────────────────────
+
+  app.get("/auth/google", (req, res, next) => {
+    if (!googleClientId) {
+      return res.redirect("/?error=google_not_configured");
+    }
+    passport.authenticate("google")(req, res, next);
+  });
+
+  app.get("/auth/google/callback",
+    passport.authenticate("google", { failureRedirect: "/login?error=google_failed" }),
+    (_req, res) => res.redirect("/")
+  );
+
+  // ─── GitHub OAuth Routes ─────────────────────────────────────────────────────
+
+  app.get("/auth/github", (req, res, next) => {
+    if (!githubClientId) {
+      return res.redirect("/?error=github_not_configured");
+    }
+    passport.authenticate("github")(req, res, next);
+  });
+
+  app.get("/auth/github/callback",
+    passport.authenticate("github", { failureRedirect: "/login?error=github_failed" }),
+    (_req, res) => res.redirect("/")
+  );
+
+  // ─── OAuth status (so frontend knows which providers are enabled) ─────────────
+
+  app.get("/api/auth/providers", (_req, res) => {
+    res.json({
+      google: !!googleClientId,
+      github: !!githubClientId,
+    });
   });
 }
 

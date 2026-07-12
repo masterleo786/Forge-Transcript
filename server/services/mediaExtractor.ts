@@ -15,44 +15,41 @@ export async function extractMediaFromUrl(url: string): Promise<{ buffer: Buffer
   const tempPath = path.join(os.tmpdir(), `dl-${crypto.randomUUID()}.mp3`);
 
   try {
-    // Download audio using youtube-dl-exec
-    await youtubedl(url, {
+    // Single call: download audio + capture metadata (avoids fetching the video twice)
+    const result = await youtubedl(url, {
       extractAudio: true,
       audioFormat: "mp3",
+      audioQuality: 0,        // best quality
       output: tempPath,
       noWarnings: true,
       noCallHome: true,
       noCheckCertificate: true,
-      youtubeSkipDashManifest: true,
-    });
+      noPlaylist: true,        // never grab playlists, only the single video
+      printJson: true,         // get metadata in same call
+    }) as any;
 
     const buffer = await fs.readFile(tempPath);
-    
-    let title = "Video from " + platform;
-    try {
-        const info = await youtubedl(url, { dumpJson: true });
-        if (typeof info === 'object' && info !== null && 'title' in info) {
-            title = String((info as any).title);
-        }
-    } catch(e) {
-        // ignore metadata errors
-    }
-    
+    const title = result?.title || `Video from ${platform}`;
+
     return { buffer, format: "mp3", platform, title };
   } catch (error: any) {
-    console.error("Error extracting media:", error);
-    let errorMsg = "Failed to extract media from this URL.";
-    if (error.message && (error.message.includes("Private video") || error.message.includes("Sign in"))) {
-       errorMsg = "This video is private, restricted, or requires login. Please upload the video or audio file directly for transcription.";
+    console.error("Error extracting media:", error?.message ?? error);
+
+    let errorMsg = "Could not download this video. The URL may be private, geo-restricted, or unsupported.";
+
+    const msg = (error?.message || "").toLowerCase();
+    if (msg.includes("private") || msg.includes("sign in") || msg.includes("login")) {
+      errorMsg = "This video is private or requires login. Please download and upload the file directly instead.";
+    } else if (msg.includes("not available") || msg.includes("unavailable")) {
+      errorMsg = "This video is unavailable or has been removed.";
     } else if (platform === "facebook") {
-       errorMsg = "Could not retrieve this Facebook video. It may be private or restricted. Please upload the video or audio file directly for transcription.";
+      errorMsg = "Could not download this Facebook video — it may be private or restricted. Try uploading the file directly.";
+    } else if (platform === "instagram") {
+      errorMsg = "Could not download this Instagram video — it may be private. Try uploading the file directly.";
     }
+
     throw new Error(errorMsg);
   } finally {
-    try {
-      await fs.unlink(tempPath);
-    } catch (e) {
-      // Ignore cleanup errors
-    }
+    await fs.unlink(tempPath).catch(() => {});
   }
 }
