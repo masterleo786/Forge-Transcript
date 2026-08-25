@@ -21,10 +21,8 @@ export interface IStorage {
   // Users
   createUser(user: InsertUser & { password: string }): Promise<User>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  getUserByStripeCustomerId(customerId: string): Promise<User | undefined>;
   getUserById(id: number): Promise<User | undefined>;
   findOrCreateOAuthUser(email: string, name?: string): Promise<User>;
-  updateUserPlan(id: number, plan: UserPlan, stripeData?: Partial<User>): Promise<User>;
   incrementTranscriptUsage(userId: number): Promise<void>;
   resetMonthlyUsageIfNeeded(userId: number): Promise<void>;
 }
@@ -118,23 +116,9 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getUserByStripeCustomerId(customerId: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.stripeCustomerId, customerId));
-    return user;
-  }
-
   async getUserById(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
-  }
-
-  async updateUserPlan(id: number, plan: UserPlan, stripeData?: Partial<User>): Promise<User> {
-    const [updated] = await db
-      .update(users)
-      .set({ plan, ...stripeData })
-      .where(eq(users.id, id))
-      .returning();
-    return updated;
   }
 
   async incrementTranscriptUsage(userId: number): Promise<void> {

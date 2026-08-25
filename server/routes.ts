@@ -7,17 +7,10 @@ import multer from "multer";
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
-import Stripe from "stripe";
 import { transcribeAudio, generateSummary, transliterateToRomanUrdu } from "./services/transcription";
 import { extractMediaFromUrl } from "./services/mediaExtractor";
 import { ensureCompatibleFormat } from "./replit_integrations/audio/client";
 import { PLAN_LIMITS, type UserPlan } from "@shared/schema";
-
-// ─── Stripe setup ────────────────────────────────────────────────────────────
-
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY)
-  : null;
 
 // ─── Multer ──────────────────────────────────────────────────────────────────
 
@@ -202,96 +195,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       console.error("Error creating from file:", error);
       res.status(500).json({ message: "Internal server error" });
     }
-  });
-
-  // ── Stripe Checkout ────────────────────────────────────────────────────────
-
-  app.post("/api/stripe/checkout", async (req, res) => {
-    if (!stripe) return res.status(503).json({ message: "Payment system not configured" });
-    if (!req.isAuthenticated()) return res.status(401).json({ message: "Login required to subscribe" });
-
-    const { plan, cycle } = req.body; // plan: basic|pro, cycle: monthly|annual
-    const user = req.user as any;
-
-    const priceIds: Record<string, Record<string, string>> = {
-      basic: {
-        monthly: process.env.STRIPE_PRICE_BASIC_MONTHLY || "",
-        annual: process.env.STRIPE_PRICE_BASIC_ANNUAL || "",
-      },
-      pro: {
-        monthly: process.env.STRIPE_PRICE_PRO_MONTHLY || "",
-        annual: process.env.STRIPE_PRICE_PRO_ANNUAL || "",
-      },
-    };
-
-    const priceId = priceIds[plan]?.[cycle];
-    if (!priceId) return res.status(400).json({ message: "Invalid plan or cycle. Please configure Stripe price IDs." });
-
-    try {
-      const session = await stripe.checkout.sessions.create({
-        mode: "subscription",
-        payment_method_types: ["card"],
-        line_items: [{ price: priceId, quantity: 1 }],
-        success_url: `${req.protocol}://${req.get("host")}/pricing?success=1`,
-        cancel_url: `${req.protocol}://${req.get("host")}/pricing?canceled=1`,
-        customer_email: user.email,
-        metadata: { userId: String(user.id), plan, cycle },
-      });
-      res.json({ url: session.url });
-    } catch (err: any) {
-      console.error("Stripe checkout error:", err);
-      res.status(500).json({ message: err.message });
-    }
-  });
-
-  // ── Stripe Webhook ─────────────────────────────────────────────────────────
-
-  app.post("/api/stripe/webhook", async (req, res) => {
-    if (!stripe) return res.status(503).send("Stripe not configured");
-
-    const sig = req.headers["stripe-signature"] as string;
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!webhookSecret) return res.status(503).send("Stripe webhook is not configured");
-    // rawBody is captured in the express.json verify callback in index.ts
-    const rawBody = (req as any).rawBody;
-
-    let event: Stripe.Event;
-    try {
-      if (!sig || !rawBody) return res.status(400).send("Missing Stripe signature");
-      event = stripe.webhooks.constructEvent(rawBody as Buffer, sig, webhookSecret);
-    } catch (err: any) {
-      console.error("Webhook signature error:", err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const userId = parseInt(session.metadata?.userId || "0");
-      const plan = session.metadata?.plan as UserPlan;
-      const cycle = session.metadata?.cycle;
-
-      if (userId && plan) {
-        await storage.updateUserPlan(userId, plan, {
-          stripeCustomerId: session.customer as string,
-          stripeSubscriptionId: session.subscription as string,
-          subscriptionStatus: "active",
-          billingCycle: cycle || "monthly",
-        });
-      }
-    }
-
-    if (event.type === "customer.subscription.deleted") {
-      const sub = event.data.object as Stripe.Subscription;
-      const user = await storage.getUserByStripeCustomerId(String(sub.customer));
-      if (user) {
-        await storage.updateUserPlan(user.id, "free", {
-          subscriptionStatus: "canceled",
-          stripeSubscriptionId: null as any,
-        });
-      }
-    }
-
-    res.json({ received: true });
   });
 
   // ── Usage info ─────────────────────────────────────────────────────────────

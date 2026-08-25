@@ -10,10 +10,6 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name"),
   plan: text("plan").notNull().default("free"), // free | basic | pro
-  stripeCustomerId: text("stripe_customer_id"),
-  stripeSubscriptionId: text("stripe_subscription_id"),
-  subscriptionStatus: text("subscription_status"), // active | canceled | past_due
-  billingCycle: text("billing_cycle"), // monthly | annual
   transcriptsUsedThisMonth: integer("transcripts_used_this_month").notNull().default(0),
   monthResetDate: timestamp("month_reset_date").defaultNow(),
   createdAt: timestamp("created_at").defaultNow(),
@@ -24,10 +20,6 @@ export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
   transcriptsUsedThisMonth: true,
   monthResetDate: true,
-  stripeCustomerId: true,
-  stripeSubscriptionId: true,
-  subscriptionStatus: true,
-  billingCycle: true,
   plan: true,
 });
 
@@ -71,12 +63,7 @@ export type TranscriptResponse = Transcript;
 // Reset period is 28 days (not calendar month) for all plans.
 
 export const PLAN_LIMITS: Record<UserPlan, { transcriptsPerMonth: number; hasAds: boolean; hasSrt: boolean; label: string }> = {
-  free:  { transcriptsPerMonth: 10,  hasAds: true,  hasSrt: false, label: "Free"  },
-  basic: { transcriptsPerMonth: 50,  hasAds: false, hasSrt: true,  label: "Basic" },
-  pro:   { transcriptsPerMonth: 9999, hasAds: false, hasSrt: true,  label: "Pro"   },
-};
-
-export const PLAN_PRICING = {
-  basic: { monthly: 2.50, annual: 19.99, stripePriceMonthly: "", stripePriceAnnual: "" },
-  pro:   { monthly: 9.99, annual: 7.00,  stripePriceMonthly: "", stripePriceAnnual: "" },
+  free:  { transcriptsPerMonth: 10, hasAds: true, hasSrt: true, label: "Free" },
+  basic: { transcriptsPerMonth: 10, hasAds: true, hasSrt: true, label: "Free" },
+  pro:   { transcriptsPerMonth: 10, hasAds: true, hasSrt: true, label: "Free" },
 };

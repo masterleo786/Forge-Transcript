@@ -19,7 +19,7 @@ A premium SaaS web app that transcribes public video URLs (Facebook, YouTube, In
 | `shared/routes.ts` | API contract types |
 | `server/index.ts` | Express entry point — sets up auth then routes |
 | `server/auth.ts` | Passport setup, session config, auth routes |
-| `server/routes.ts` | Transcript CRUD, Stripe checkout/webhook, usage API |
+| `server/routes.ts` | Transcript CRUD and usage API |
 | `server/storage.ts` | Database interface — all DB queries |
 | `server/services/transcription.ts` | OpenAI transcribe + summary |
 | `server/services/mediaExtractor.ts` | youtube-dl-exec URL extraction |
@@ -29,13 +29,11 @@ A premium SaaS web app that transcribes public video URLs (Facebook, YouTube, In
 | `client/src/components/AdBanner.tsx` | Ad placeholder (replace with Google AdSense code) |
 | `client/src/pages/Pricing.tsx` | Pricing page with plan comparison + competitor table |
 
-## Subscription Plans
+## Free service
 
-| Plan | Price | Transcripts/month | Ads | SRT |
-|---|---|---|---|---|
-| Free | $0 | 3 | Yes | No |
-| Basic | $4.99/mo or $39/yr | 30 | No | Yes |
-| Pro | $9.99/mo or $79/yr | Unlimited | No | Yes |
+The hosted service is free for everyone, with ads supporting AI processing.
+Accounts receive 10 transcripts every 28 days; guests receive 2 transcripts.
+SRT downloads are free.
 
 ## Required Environment Variables
 
@@ -43,12 +41,6 @@ A premium SaaS web app that transcribes public video URLs (Facebook, YouTube, In
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection (already set) |
 | `SESSION_SECRET` | Session signing (already set) |
-| `STRIPE_SECRET_KEY` | Stripe API key — needed for payments |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-| `STRIPE_PRICE_BASIC_MONTHLY` | Stripe Price ID for Basic monthly |
-| `STRIPE_PRICE_BASIC_ANNUAL` | Stripe Price ID for Basic annual |
-| `STRIPE_PRICE_PRO_MONTHLY` | Stripe Price ID for Pro monthly |
-| `STRIPE_PRICE_PRO_ANNUAL` | Stripe Price ID for Pro annual |
 
 ## Ad Integration
 

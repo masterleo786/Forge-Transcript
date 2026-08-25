@@ -8,7 +8,6 @@ export interface AuthUser {
   name?: string | null;
   plan: UserPlan;
   transcriptsUsedThisMonth: number;
-  subscriptionStatus?: string | null;
 }
 
 export interface UsageInfo {
@@ -101,25 +100,6 @@ export function useLogout() {
     onSuccess: () => {
       queryClient.setQueryData(["/api/me"], null);
       queryClient.invalidateQueries({ queryKey: ["/api/usage"] });
-    },
-  });
-}
-
-export function useStartCheckout() {
-  return useMutation({
-    mutationFn: async ({ plan, cycle }: { plan: "basic" | "pro"; cycle: "monthly" | "annual" }) => {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan, cycle }),
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to start checkout");
-      return data as { url: string };
-    },
-    onSuccess: ({ url }) => {
-      window.location.href = url;
     },
   });
 }

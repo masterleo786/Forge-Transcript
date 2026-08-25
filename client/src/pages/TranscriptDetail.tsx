@@ -49,7 +49,7 @@ export default function TranscriptDetail() {
   const [view, setView] = useState<"plain" | "timestamped">("plain");
 
   const showAds = !usage || usage.plan === "free" || usage.plan === "guest";
-  const hasSrt = usage?.hasSrt ?? false;
+  const hasSrt = true;
 
   if (isLoading) {
     return (
@@ -152,17 +152,12 @@ export default function TranscriptDetail() {
                 </button>
               )}
 
-              {/* SRT — paid plans */}
+              {/* SRT — free for everyone */}
               {transcript.srtContent && hasSrt ? (
                 <button onClick={handleDownloadSrt} data-testid="button-download-srt"
                   className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-lg shadow-primary/20">
                   <Download className="w-4 h-4" /> SRT
                 </button>
-              ) : !hasSrt ? (
-                <Link href="/pricing" data-testid="link-upgrade-srt"
-                  className="px-4 py-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 rounded-lg text-sm font-medium flex items-center gap-2 transition-all">
-                  <Download className="w-4 h-4" /> SRT (upgrade)
-                </Link>
               ) : null}
             </div>
           )}

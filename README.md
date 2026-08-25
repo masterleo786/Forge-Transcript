@@ -11,8 +11,8 @@ many explicit Whisper language choices, and **Urdu in the English alphabet
 - Audio and video file uploads
 - Auto-detect or choose the spoken language
 - Roman Urdu output that preserves the Urdu meaning
-- Plain text, VTT, and plan-gated SRT downloads
-- Optional accounts, Google/GitHub sign-in, usage limits, subscriptions, and ads
+- Plain text, VTT, and SRT downloads
+- Optional accounts, Google/GitHub sign-in, usage limits, and ads
 
 ## Run locally
 
@@ -27,10 +27,9 @@ your environment/secrets manager; never commit them to this repository.
 
 ## Monetization
 
-The app includes two optional income paths: paid subscription plans through
-Stripe and advertising placements through `AdBanner`. Stripe price IDs and a
-webhook signing secret must be configured before accepting live payments.
-Advertising requires approval from the ad provider.
+The hosted version is free and supported by advertising placements through
+`AdBanner`. Advertising requires approval from the ad provider. Self-hosters
+can remove or replace the ad component.
 
 ## Responsible use
 
