@@ -42,7 +42,12 @@ function detectPlatform(url: string): string {
 async function checkUsageLimit(req: Request, res: Response): Promise<boolean> {
   const user = req.user as any;
   if (!user) {
-    // Guest: allow up to 2 transcripts (tracked client-side, enforced server-side by guest count)
+    // Keep the guest allowance server-side as well as in the UI.
+    const session = (req as any).session;
+    if ((session?.guestTranscriptsUsed || 0) >= 2) {
+      res.status(403).json({ message: "Guest limit reached. Create a free account to continue.", upgradeRequired: true });
+      return false;
+    }
     return true;
   }
   await storage.resetMonthlyUsageIfNeeded(user.id);
@@ -71,7 +76,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get(api.transcripts.list.path, async (req, res) => {
     try {
       const user = req.user as any;
-      const transcripts = await storage.getTranscripts(user?.id);
+      const allTranscripts = await storage.getTranscripts(user?.id);
+      const guestIds = ((req as any).session?.guestTranscriptIds || []) as number[];
+      const transcripts = user?.id
+        ? allTranscripts
+        : allTranscripts.filter((transcript) => guestIds.includes(transcript.id));
       res.json(transcripts);
     } catch (error) {
       console.error("Error fetching transcripts:", error);
@@ -85,6 +94,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID format" });
       const transcript = await storage.getTranscript(id);
       if (!transcript) return res.status(404).json({ message: "Transcript not found" });
+      const user = req.user as any;
+      const guestIds = (((req as any).session?.guestTranscriptIds || []) as number[]);
+      if (user?.id ? transcript.userId !== user.id : !guestIds.includes(id)) {
+        return res.status(404).json({ message: "Transcript not found" });
+      }
       res.json(transcript);
     } catch (error) {
       console.error("Error fetching transcript:", error);
@@ -98,6 +112,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (isNaN(id)) return res.status(400).json({ message: "Invalid ID format" });
       const transcript = await storage.getTranscript(id);
       if (!transcript) return res.status(404).json({ message: "Transcript not found" });
+      const user = req.user as any;
+      const guestIds = (((req as any).session?.guestTranscriptIds || []) as number[]);
+      if (user?.id ? transcript.userId !== user.id : !guestIds.includes(id)) {
+        return res.status(404).json({ message: "Transcript not found" });
+      }
       await storage.deleteTranscript(id);
       res.status(204).send();
     } catch (error) {
@@ -126,6 +145,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
 
       if (user?.id) await storage.incrementTranscriptUsage(user.id);
+      else {
+        const session = (req as any).session;
+        session.guestTranscriptsUsed = (session.guestTranscriptsUsed || 0) + 1;
+        session.guestTranscriptIds = [...(session.guestTranscriptIds || []), transcript.id];
+      }
 
       res.status(201).json(transcript);
 
@@ -161,6 +185,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       });
 
       if (user?.id) await storage.incrementTranscriptUsage(user.id);
+      else {
+        const session = (req as any).session;
+        session.guestTranscriptsUsed = (session.guestTranscriptsUsed || 0) + 1;
+        session.guestTranscriptIds = [...(session.guestTranscriptIds || []), transcript.id];
+      }
 
       res.status(201).json(transcript);
 
@@ -222,14 +251,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     const sig = req.headers["stripe-signature"] as string;
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) return res.status(503).send("Stripe webhook is not configured");
     // rawBody is captured in the express.json verify callback in index.ts
     const rawBody = (req as any).rawBody;
 
     let event: Stripe.Event;
     try {
-      event = webhookSecret && rawBody
-        ? stripe.webhooks.constructEvent(rawBody as Buffer, sig, webhookSecret)
-        : (req.body as Stripe.Event);
+      if (!sig || !rawBody) return res.status(400).send("Missing Stripe signature");
+      event = stripe.webhooks.constructEvent(rawBody as Buffer, sig, webhookSecret);
     } catch (err: any) {
       console.error("Webhook signature error:", err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -253,7 +282,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
     if (event.type === "customer.subscription.deleted") {
       const sub = event.data.object as Stripe.Subscription;
-      const user = await storage.getUserByEmail((sub.customer as any).email || "");
+      const user = await storage.getUserByStripeCustomerId(String(sub.customer));
       if (user) {
         await storage.updateUserPlan(user.id, "free", {
           subscriptionStatus: "canceled",

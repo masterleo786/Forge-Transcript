@@ -5,6 +5,9 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
+// Replit serves the app through an HTTPS reverse proxy. Trusting the proxy
+// lets express-session set secure cookies correctly in production.
+app.set("trust proxy", 1);
 const httpServer = createServer(app);
 
 declare module "http" {
