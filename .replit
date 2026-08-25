@@ -9,6 +9,10 @@ channel = "stable-24_05"
 localPort = 5000
 externalPort = 80
 
+[[ports]]
+localPort = 5001
+externalPort = 3001
+
 [env]
 PORT = "5000"
 
@@ -41,10 +45,3 @@ waitForPort = 5000
 [agent]
 integrations = ["javascript_openai_ai_integrations:2.0.0", "javascript_database:1.0.0"]
 
-[userenv]
-
-[userenv.shared]
-STRIPE_PRICE_BASIC_MONTHLY = "price_1TXjDHQksV7LmuIGixJ2uQ6u"
-STRIPE_PRICE_BASIC_ANNUAL = "price_1TNoWPQksV7LmuIGgC1IVVvO"
-STRIPE_PRICE_PRO_MONTHLY = "price_1TNoWPQksV7LmuIG4feQaXQ6"
-STRIPE_PRICE_PRO_ANNUAL = "price_1TXjDIQksV7LmuIGT3jFN4KV"
