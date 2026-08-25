@@ -106,8 +106,36 @@ function normaliseLanguage(lang: string | undefined): string | undefined {
   const map: Record<string, string> = {
     "zh-yue": "zh",
     "zh-cantonese": "zh",
+    "ur-roman": "ur",
   };
   return map[lang] ?? lang;
+}
+
+/**
+ * Roman Urdu is an output format, not a Whisper language. Transcribe Urdu
+ * first, then transliterate it without translating its meaning.
+ */
+export async function transliterateToRomanUrdu(text: string): Promise<string> {
+  if (!text.trim()) return text;
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You transliterate Urdu into Roman Urdu using the English alphabet. Preserve the exact meaning, wording, order, names, numbers, punctuation, and line breaks. Do not translate to English, summarize, or add commentary. Return only the Roman Urdu text.",
+        },
+        { role: "user", content: text },
+      ],
+    });
+    return response.choices[0]?.message?.content?.trim() || text;
+  } catch (error: any) {
+    // A transliteration outage must not turn a successful transcription into
+    // a failed job; the original Urdu text is still useful to the user.
+    console.error("[transcription] Roman Urdu formatting failed:", error?.message);
+    return text;
+  }
 }
 
 // Prompt that stops either model from translating into a different language

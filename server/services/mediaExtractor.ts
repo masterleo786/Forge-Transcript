@@ -26,7 +26,7 @@ export async function extractMediaFromUrl(url: string): Promise<{ buffer: Buffer
       noCheckCertificate: true,
       noPlaylist: true,        // never grab playlists, only the single video
       printJson: true,         // get metadata in same call
-    }) as any;
+    } as any) as any;
 
     const buffer = await fs.readFile(tempPath);
     const title = result?.title || `Video from ${platform}`;

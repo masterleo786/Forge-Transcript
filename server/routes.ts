@@ -8,7 +8,7 @@ import os from "os";
 import path from "path";
 import fs from "fs/promises";
 import Stripe from "stripe";
-import { transcribeAudio, generateSummary } from "./services/transcription";
+import { transcribeAudio, generateSummary, transliterateToRomanUrdu } from "./services/transcription";
 import { extractMediaFromUrl } from "./services/mediaExtractor";
 import { ensureCompatibleFormat } from "./replit_integrations/audio/client";
 import { PLAN_LIMITS, type UserPlan } from "@shared/schema";
@@ -121,6 +121,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         title: `Video from ${platform}`,
         originalUrl: input.url,
         platform,
+        language: input.language || "auto",
         userId: user?.id ?? null,
       });
 
@@ -155,6 +156,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const transcript = await storage.createTranscript({
         title: req.file.originalname,
         platform: "upload",
+        language: req.body?.language || "auto",
         userId: user?.id ?? null,
       });
 
@@ -292,7 +294,8 @@ async function processUrlTranscription(id: number, url: string, language?: strin
 
     const { buffer: mediaBuffer, format, platform, title } = await extractMediaFromUrl(url);
     const { buffer: compatibleBuffer, format: compFormat } = await ensureCompatibleFormat(mediaBuffer);
-    const { text, srtContent, duration: audioDuration } = await transcribeAudio(compatibleBuffer, compFormat, language);
+    const { text: rawText, srtContent, duration: audioDuration } = await transcribeAudio(compatibleBuffer, compFormat, language);
+    const text = language === "ur-roman" ? await transliterateToRomanUrdu(rawText) : rawText;
     const summary = await generateSummary(text);
 
     const wordCount = text.split(/\s+/).filter(Boolean).length;
@@ -325,7 +328,8 @@ async function processFileTranscription(id: number, filePath: string, mimeType: 
     await fs.unlink(filePath).catch(console.error);
 
     const { buffer: compatibleBuffer, format: compFormat } = await ensureCompatibleFormat(fileBuffer);
-    const { text, srtContent, duration: audioDuration } = await transcribeAudio(compatibleBuffer, compFormat, language);
+    const { text: rawText, srtContent, duration: audioDuration } = await transcribeAudio(compatibleBuffer, compFormat, language);
+    const text = language === "ur-roman" ? await transliterateToRomanUrdu(rawText) : rawText;
     const summary = await generateSummary(text);
 
     const wordCount = text.split(/\s+/).filter(Boolean).length;

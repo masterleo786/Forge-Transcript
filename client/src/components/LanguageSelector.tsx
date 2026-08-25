@@ -6,6 +6,7 @@ export const WHISPER_LANGUAGES = [
   { code: "zh", label: "Chinese (Mandarin)" },
   { code: "zh-yue", label: "Chinese (Cantonese)" },
   { code: "ur", label: "Urdu" },
+  { code: "ur-roman", label: "Urdu (English alphabet / Roman Urdu)" },
   { code: "hi", label: "Hindi" },
   { code: "ar", label: "Arabic" },
   { code: "es", label: "Spanish" },
