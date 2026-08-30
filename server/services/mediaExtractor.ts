@@ -20,12 +20,15 @@ export async function extractMediaFromUrl(url: string): Promise<{ buffer: Buffer
       extractAudio: true,
       audioFormat: "mp3",
       audioQuality: 0,        // best quality
+      format: "bestaudio/best",
       output: tempPath,
       noWarnings: true,
-      noCallHome: true,
       noCheckCertificate: true,
       noPlaylist: true,        // never grab playlists, only the single video
       printJson: true,         // get metadata in same call
+      ...(platform === "youtube"
+        ? { extractorArgs: "youtube:player_client=android" }
+        : {}),
     } as any) as any;
 
     const buffer = await fs.readFile(tempPath);
