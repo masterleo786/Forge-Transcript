@@ -1,7 +1,7 @@
 import { Globe } from "lucide-react";
 
 export const WHISPER_LANGUAGES = [
-  { code: "auto", label: "Auto-detect" },
+  { code: "auto", label: "Auto-detect (keep spoken language)" },
   { code: "en", label: "English" },
   { code: "zh", label: "Chinese (Mandarin)" },
   { code: "zh-yue", label: "Chinese (Cantonese)" },

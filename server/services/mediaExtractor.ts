@@ -6,11 +6,18 @@ import path from "path";
 import crypto from "crypto";
 
 export async function extractMediaFromUrl(url: string): Promise<{ buffer: Buffer; format: string; platform: string; title?: string }> {
+  const lowerUrl = url.toLowerCase();
   let platform = "unknown";
-  if (url.includes("facebook.com") || url.includes("fb.watch")) platform = "facebook";
-  else if (url.includes("youtube.com") || url.includes("youtu.be")) platform = "youtube";
-  else if (url.includes("instagram.com")) platform = "instagram";
-  else if (url.includes("tiktok.com")) platform = "tiktok";
+  if (lowerUrl.includes("facebook.com") || lowerUrl.includes("fb.watch")) platform = "facebook";
+  else if (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be")) platform = "youtube";
+  else if (lowerUrl.includes("instagram.com")) platform = "instagram";
+  else if (lowerUrl.includes("tiktok.com")) platform = "tiktok";
+  else if (
+    lowerUrl.includes("xiaohongshu.com") ||
+    lowerUrl.includes("xhslink.com") ||
+    lowerUrl.includes("rednote.com")
+  ) platform = "rednote";
+  else if (lowerUrl.includes("kuaishou.com") || lowerUrl.includes("kwai.com")) platform = "kuaishou";
 
   const tempPath = path.join(os.tmpdir(), `dl-${crypto.randomUUID()}.mp3`);
 
@@ -49,6 +56,8 @@ export async function extractMediaFromUrl(url: string): Promise<{ buffer: Buffer
       errorMsg = "Could not download this Facebook video — it may be private or restricted. Try uploading the file directly.";
     } else if (platform === "instagram") {
       errorMsg = "Could not download this Instagram video — it may be private. Try uploading the file directly.";
+    } else if (platform === "kuaishou") {
+      errorMsg = "Kuaishou/Kwai links need a supported public resolver. Please upload the video file directly for now.";
     }
 
     throw new Error(errorMsg);

@@ -20,6 +20,12 @@ export function UrlIngestion() {
     else if (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be")) setDetectedPlatform("youtube");
     else if (lowerUrl.includes("instagram.com")) setDetectedPlatform("instagram");
     else if (lowerUrl.includes("tiktok.com")) setDetectedPlatform("tiktok");
+    else if (
+      lowerUrl.includes("xiaohongshu.com") ||
+      lowerUrl.includes("xhslink.com") ||
+      lowerUrl.includes("rednote.com")
+    ) setDetectedPlatform("rednote");
+    else if (lowerUrl.includes("kuaishou.com") || lowerUrl.includes("kwai.com")) setDetectedPlatform("kuaishou");
     else setDetectedPlatform("unknown");
   }, [url]);
 
@@ -76,7 +82,7 @@ export function UrlIngestion() {
             const pasted = e.clipboardData.getData("text");
             if (pasted) setTimeout(() => setUrl(pasted.trim()), 0);
           }}
-          placeholder="Paste public video link (Facebook, YouTube, TikTok…)"
+          placeholder="Paste public video link (YouTube, RedNote, TikTok…)"
           data-testid="input-url"
           className="w-full py-5 pl-16 pr-36 bg-card/40 border-2 border-white/10 rounded-2xl text-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:bg-card/80 transition-all backdrop-blur-sm"
           disabled={createMutation.isPending}

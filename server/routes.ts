@@ -25,10 +25,17 @@ const upload = multer({
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function detectPlatform(url: string): string {
-  if (url.includes("facebook.com") || url.includes("fb.watch")) return "facebook";
-  if (url.includes("youtube.com") || url.includes("youtu.be")) return "youtube";
-  if (url.includes("instagram.com")) return "instagram";
-  if (url.includes("tiktok.com")) return "tiktok";
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes("facebook.com") || lowerUrl.includes("fb.watch")) return "facebook";
+  if (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be")) return "youtube";
+  if (lowerUrl.includes("instagram.com")) return "instagram";
+  if (lowerUrl.includes("tiktok.com")) return "tiktok";
+  if (
+    lowerUrl.includes("xiaohongshu.com") ||
+    lowerUrl.includes("xhslink.com") ||
+    lowerUrl.includes("rednote.com")
+  ) return "rednote";
+  if (lowerUrl.includes("kuaishou.com") || lowerUrl.includes("kwai.com")) return "kuaishou";
   return "generic";
 }
 
