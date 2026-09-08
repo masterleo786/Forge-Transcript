@@ -1,2 +1,3 @@
 - [Workflow port conflicts](workflow-port-conflicts.md) — stale dev servers can cause false EADDRINUSE workflow failures; verify one process before judging app health.
 - [Production database freeze](production-database-freeze.md) — a successful build can still have broken published API routes when production PostgreSQL is frozen.
+- [YouTube availability limits](youtube-availability-limits.md) — yt-dlp updates improve compatibility but cannot bypass source-platform bot checks; keep upload fallback and honest errors.

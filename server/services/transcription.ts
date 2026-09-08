@@ -163,7 +163,7 @@ async function transcribeChunk(
 
     const response = await openai.audio.transcriptions.create(params) as any;
 
-    if (!response?.text) throw new Error("Empty response from whisper-1");
+    if (!response?.text?.trim()) throw new Error("Empty response from whisper-1");
 
     const rawSegments: Array<{ start: number; end: number; text: string }> =
       (response.segments || []).map((s: any) => ({
@@ -192,7 +192,8 @@ async function transcribeChunk(
     if (lang) fallbackParams.language = lang;
 
     const response = await openai.audio.transcriptions.create(fallbackParams) as any;
-    const text = typeof response === "string" ? response : (response?.text || "");
+    const text = (typeof response === "string" ? response : (response?.text || "")).trim();
+    if (!text) throw new Error("The transcription service returned no text");
 
     return { text, segments: [], duration: 0 };
   } catch (fallbackErr: any) {

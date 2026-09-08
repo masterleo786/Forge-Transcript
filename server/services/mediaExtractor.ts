@@ -30,7 +30,6 @@ export async function extractMediaFromUrl(url: string): Promise<{ buffer: Buffer
       format: "bestaudio/best",
       output: tempPath,
       noWarnings: true,
-      noCheckCertificate: true,
       noPlaylist: true,        // never grab playlists, only the single video
       printJson: true,         // get metadata in same call
       ...(platform === "youtube"
@@ -48,7 +47,12 @@ export async function extractMediaFromUrl(url: string): Promise<{ buffer: Buffer
     let errorMsg = "Could not download this video. The URL may be private, geo-restricted, or unsupported.";
 
     const msg = (error?.message || "").toLowerCase();
-    if (msg.includes("private") || msg.includes("sign in") || msg.includes("login")) {
+    if (
+      platform === "youtube" &&
+      (msg.includes("not a bot") || msg.includes("confirm you") || msg.includes("captcha"))
+    ) {
+      errorMsg = "YouTube temporarily blocked this request with a bot check. Try another public video, wait a few minutes, or upload the video file directly.";
+    } else if (msg.includes("private") || msg.includes("sign in") || msg.includes("login")) {
       errorMsg = "This video is private or requires login. Please download and upload the file directly instead.";
     } else if (msg.includes("not available") || msg.includes("unavailable")) {
       errorMsg = "This video is unavailable or has been removed.";

@@ -43,12 +43,6 @@ export function FileIngestion() {
 
   return (
     <div className="w-full space-y-3">
-      {/* Language selector */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground whitespace-nowrap">Transcript language:</span>
-        <LanguageSelector value={language} onChange={setLanguage} className="flex-1 max-w-xs" />
-      </div>
-
       {!file ? (
         <div
           {...getRootProps()}
@@ -66,6 +60,7 @@ export function FileIngestion() {
           <p className="text-muted-foreground text-sm max-w-sm mx-auto">
             Supports MP3, WAV, MP4, MOV, MKV and more — up to <strong className="text-white/70">500 MB</strong> (3+ hour videos).
           </p>
+          <p className="text-xs text-primary/80 mt-3">After choosing a file, you’ll select the spoken language before generating.</p>
         </div>
       ) : (
         <motion.div
@@ -98,6 +93,16 @@ export function FileIngestion() {
             >
               Change
             </button>
+          </div>
+
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Choose the transcript language</p>
+                <p className="text-xs text-muted-foreground">Auto-detect keeps the original spoken language.</p>
+              </div>
+              <LanguageSelector value={language} onChange={setLanguage} className="w-full sm:w-64 sm:ml-auto" />
+            </div>
           </div>
 
           <button

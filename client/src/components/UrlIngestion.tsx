@@ -46,12 +46,6 @@ export function UrlIngestion() {
 
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-3">
-      {/* Language selector row */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground whitespace-nowrap">Transcript language:</span>
-        <LanguageSelector value={language} onChange={setLanguage} className="flex-1 max-w-xs" />
-      </div>
-
       {/* URL input row */}
       <div className={`relative flex items-center transition-all duration-300 rounded-2xl ${createMutation.isPending ? "opacity-70 pointer-events-none" : ""}`}>
         <div className="absolute left-4 z-10 flex items-center justify-center">
@@ -102,6 +96,22 @@ export function UrlIngestion() {
         </button>
       </div>
 
+      {url.trim() && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-primary/20 bg-primary/5 p-3"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">Choose the transcript language</p>
+              <p className="text-xs text-muted-foreground">Select the spoken language, or use Auto-detect to keep it unchanged.</p>
+            </div>
+            <LanguageSelector value={language} onChange={setLanguage} className="w-full sm:w-64 sm:ml-auto" />
+          </div>
+        </motion.div>
+      )}
+
       <AnimatePresence>
         {createMutation.isError && (
           <motion.div
@@ -114,7 +124,7 @@ export function UrlIngestion() {
             <div>
               <p className="font-semibold text-red-400">Unable to process URL</p>
               <p className="text-sm mt-1 text-white/80">{createMutation.error.message}</p>
-              <p className="text-sm mt-2 text-white/50">If this video is private or restricted, use the file upload tab instead.</p>
+              <p className="text-sm mt-2 text-white/50">Some public links can still be blocked by the source platform. If that happens, use the file upload tab instead.</p>
             </div>
           </motion.div>
         )}
