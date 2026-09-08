@@ -8,7 +8,7 @@ import os from "os";
 import path from "path";
 import fs from "fs/promises";
 import { transcribeAudio, generateSummary, transliterateToRomanUrdu } from "./services/transcription";
-import { extractMediaFromUrl } from "./services/mediaExtractor";
+import { assertPublicMediaUrl, detectMediaPlatform, downloadMediaFromUrl, extractMediaFromUrl } from "./services/mediaExtractor";
 import { ensureCompatibleFormat } from "./replit_integrations/audio/client";
 import { PLAN_LIMITS, type UserPlan } from "@shared/schema";
 
@@ -23,21 +23,6 @@ const upload = multer({
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function detectPlatform(url: string): string {
-  const lowerUrl = url.toLowerCase();
-  if (lowerUrl.includes("facebook.com") || lowerUrl.includes("fb.watch")) return "facebook";
-  if (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be")) return "youtube";
-  if (lowerUrl.includes("instagram.com")) return "instagram";
-  if (lowerUrl.includes("tiktok.com")) return "tiktok";
-  if (
-    lowerUrl.includes("xiaohongshu.com") ||
-    lowerUrl.includes("xhslink.com") ||
-    lowerUrl.includes("rednote.com")
-  ) return "rednote";
-  if (lowerUrl.includes("kuaishou.com") || lowerUrl.includes("kwai.com")) return "kuaishou";
-  return "generic";
-}
 
 async function checkUsageLimit(req: Request, res: Response): Promise<boolean> {
   const user = req.user as any;
@@ -133,7 +118,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const allowed = await checkUsageLimit(req, res);
       if (!allowed) return;
 
-      const platform = detectPlatform(input.url);
+      const platform = detectMediaPlatform(input.url);
       const user = req.user as any;
 
       const transcript = await storage.createTranscript({
@@ -164,6 +149,36 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       console.error("Error creating from URL:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // ── Direct media download ──────────────────────────────────────────────────
+  const activeDownloads = new Set<string>();
+  app.post(api.downloads.create.path, async (req, res) => {
+    let key = "";
+    try {
+      const input = api.downloads.create.input.parse(req.body);
+      await assertPublicMediaUrl(input.url);
+      key = `download:${(req as any).sessionID || req.ip}`;
+      if (activeDownloads.has(key)) {
+        return res.status(429).json({ message: "A download is already in progress. Please wait for it to finish." });
+      }
+      activeDownloads.add(key);
+
+      const result = await downloadMediaFromUrl(input.url, input.format, input.quality);
+      res.setHeader("Content-Type", result.contentType);
+      res.setHeader("Content-Length", result.buffer.length);
+      res.setHeader("Content-Disposition", `attachment; filename="${result.filename}"`);
+      res.setHeader("Cache-Control", "no-store");
+      res.send(result.buffer);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message, field: error.errors[0].path.join(".") });
+      }
+      const status = error?.message?.includes("already in progress") ? 429 : 400;
+      res.status(status).json({ message: error?.message || "Unable to download this media." });
+    } finally {
+      if (key) activeDownloads.delete(key);
     }
   });
 

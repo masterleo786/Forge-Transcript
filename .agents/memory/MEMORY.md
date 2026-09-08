@@ -1,3 +1,4 @@
 - [Workflow port conflicts](workflow-port-conflicts.md) — stale dev servers can cause false EADDRINUSE workflow failures; verify one process before judging app health.
 - [Production database freeze](production-database-freeze.md) — a successful build can still have broken published API routes when production PostgreSQL is frozen.
 - [YouTube availability limits](youtube-availability-limits.md) — yt-dlp updates improve compatibility but cannot bypass source-platform bot checks; keep upload fallback and honest errors.
+- [Public downloader boundary](public-downloader-boundary.md) — downloads stay single-item, public-only, size-limited, and server-cleaned; never collect platform credentials or promise universal coverage.

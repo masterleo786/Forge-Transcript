@@ -15,6 +15,21 @@ export const errorSchemas = {
 };
 
 export const api = {
+  downloads: {
+    create: {
+      method: 'POST' as const,
+      path: '/api/download' as const,
+      input: z.object({
+        url: z.string().url("Enter a valid public video URL"),
+        format: z.enum(["mp4", "mp3"]).default("mp4"),
+        quality: z.enum(["best", "1080", "720", "480"]).default("best"),
+      }),
+      responses: {
+        200: z.any(),
+        400: errorSchemas.validation,
+      },
+    },
+  },
   transcripts: {
     list: {
       method: 'GET' as const,

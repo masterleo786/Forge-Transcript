@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { UrlIngestion } from "@/components/UrlIngestion";
 import { FileIngestion } from "@/components/FileIngestion";
+import { MediaDownloader } from "@/components/MediaDownloader";
 import { Dashboard } from "@/components/Dashboard";
 import { AppHeader } from "@/components/AppHeader";
 import { AdBanner } from "@/components/AdBanner";
 import { motion } from "framer-motion";
 import { useUser, useUsage } from "@/hooks/use-auth";
 import {
-  Zap, Facebook, Youtube, Instagram, Globe, Crown, AlertTriangle,
+  Zap, Facebook, Youtube, Instagram, Globe, Crown, AlertTriangle, Download,
   Globe2, Clock, DollarSign, Languages, FileVideo, CheckCircle2,
 } from "lucide-react";
 import { SiTiktok } from "react-icons/si";
@@ -129,6 +130,7 @@ function UsageLimitBanner({ used, limit, plan }: { used: number; limit: number; 
 }
 
 export default function Home() {
+  const [activeTool, setActiveTool] = useState<"transcribe" | "download">("transcribe");
   const [activeTab, setActiveTab] = useState<"url" | "file">("url");
   const { data: user } = useUser();
   const { data: usage } = useUsage();
@@ -158,6 +160,23 @@ export default function Home() {
         {/* Input card */}
         <div className="max-w-2xl mx-auto w-full -mt-2 relative z-20">
           <div className="bg-card/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-2 shadow-2xl mb-8">
+            <div className="flex p-1 bg-black/20 rounded-2xl mb-3">
+              <button
+                onClick={() => setActiveTool("transcribe")}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all ${activeTool === "transcribe" ? "bg-primary text-white shadow-lg shadow-primary/25" : "text-white/60 hover:text-white hover:bg-white/5"}`}
+                data-testid="tab-transcribe"
+              >
+                Transcribe
+              </button>
+              <button
+                onClick={() => setActiveTool("download")}
+                className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2 ${activeTool === "download" ? "bg-primary text-white shadow-lg shadow-primary/25" : "text-white/60 hover:text-white hover:bg-white/5"}`}
+                data-testid="tab-download"
+              >
+                <Download className="w-4 h-4" /> Download
+              </button>
+            </div>
+            {activeTool === "transcribe" && (
             <div className="flex p-1 bg-black/20 rounded-2xl mb-6">
               <button
                 onClick={() => setActiveTab("url")}
@@ -182,6 +201,7 @@ export default function Home() {
                 Upload File
               </button>
             </div>
+            )}
 
             <div className="p-2 md:p-4">
               <motion.div
@@ -190,7 +210,7 @@ export default function Home() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
               >
-                {activeTab === "url" ? <UrlIngestion /> : <FileIngestion />}
+                {activeTool === "download" ? <MediaDownloader /> : activeTab === "url" ? <UrlIngestion /> : <FileIngestion />}
               </motion.div>
             </div>
           </div>
