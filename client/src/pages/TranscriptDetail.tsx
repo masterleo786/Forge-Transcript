@@ -40,6 +40,14 @@ function srtToVtt(srt: string): string {
   return "WEBVTT\n\n" + srt.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, "$1.$2");
 }
 
+function languageLabel(language: string | null | undefined): string {
+  if (!language || language === "auto") return "Auto-detected (original language)";
+  if (language === "ur-roman") return "Roman Urdu";
+  if (language === "ur") return "Urdu";
+  if (language === "hi") return "Hindi";
+  return language.toUpperCase();
+}
+
 export default function TranscriptDetail() {
   const [, params] = useRoute("/transcript/:id");
   const id = parseInt(params?.id || "0");
@@ -198,12 +206,10 @@ export default function TranscriptDetail() {
                       <span className="text-muted-foreground flex items-center gap-2"><Type className="w-4 h-4" /> Words</span>
                       <span className="font-medium">{transcript.wordCount?.toLocaleString() || "--"}</span>
                     </div>
-                    {transcript.language && transcript.language !== "auto" && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground flex items-center gap-2"><Globe className="w-4 h-4" /> Language</span>
-                        <span className="font-medium capitalize">{transcript.language}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-muted-foreground flex items-center gap-2"><Globe className="w-4 h-4" /> Language</span>
+                      <span className="font-medium text-right">{languageLabel(transcript.language)}</span>
+                    </div>
                     {hasTimestamps && (
                       <div className="flex items-center justify-between">
                         <span className="text-muted-foreground flex items-center gap-2"><Subtitles className="w-4 h-4" /> Segments</span>

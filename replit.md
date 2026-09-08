@@ -1,6 +1,6 @@
 # TranscriptForge
 
-A premium SaaS web app that transcribes public video URLs (Facebook, YouTube, Instagram, TikTok) and uploaded audio/video files. Produces clean transcripts with AI summary, TXT/SRT downloads, and a polished dark-mode UI.
+A free, ad-supported open-source web app that transcribes public video URLs and uploaded audio/video files. It produces clean transcripts with AI summaries, TXT/SRT/VTT downloads, Roman Urdu output, and a separate public-media downloader for MP4/MP3.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ A premium SaaS web app that transcribes public video URLs (Facebook, YouTube, In
 - **Backend**: Express.js (ESM) + TypeScript
 - **Database**: PostgreSQL via Drizzle ORM
 - **Auth**: Passport.js (local strategy) + express-session + connect-pg-simple
-- **AI**: Replit OpenAI integration (gpt-4o-mini-transcribe for STT, gpt-4o for summary)
+- **AI**: Replit OpenAI integration (whisper-1 with gpt-4o-mini-transcribe fallback for STT, gpt-4o-mini for summaries and Roman Urdu transliteration)
 - **Media**: youtube-dl-exec + ffmpeg-static for URL extraction
 
 ## Key Files
@@ -27,6 +27,7 @@ A premium SaaS web app that transcribes public video URLs (Facebook, YouTube, In
 | `client/src/hooks/use-transcripts.ts` | Transcript query + mutation hooks with polling |
 | `client/src/components/AppHeader.tsx` | Global nav with login/signup, user menu, usage meter |
 | `client/src/components/AdBanner.tsx` | Ad placeholder (replace with Google AdSense code) |
+| `client/src/components/MediaDownloader.tsx` | Public MP4/MP3 downloader UI |
 | `client/src/pages/Pricing.tsx` | Pricing page with plan comparison + competitor table |
 
 ## Free service
@@ -52,6 +53,8 @@ To enable real ads:
 ## Platform Notes
 
 - Facebook video extraction requires public videos only
+- Downloader accepts one public media URL at a time, caps downloads at 250 MB, and rejects private/local network URLs
+- Auto-detect leaves the transcription language unset so the speech model detects and preserves the spoken language; explicit choices are passed as the input language
 - Processing runs as a background job — frontend polls every 3 seconds
 - The `processUrlTranscription` / `processFileTranscription` functions in routes.ts handle background processing
 - Transcripts are scoped to userId — guests can create transcripts too (no account needed)

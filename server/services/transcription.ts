@@ -138,10 +138,6 @@ export async function transliterateToRomanUrdu(text: string): Promise<string> {
   }
 }
 
-// Prompt that stops either model from translating into a different language
-const TRANSCRIPTION_PROMPT =
-  "Transcribe the audio exactly as spoken. Keep the original language — do not translate.";
-
 async function transcribeChunk(
   buffer: Buffer,
   format: string,
@@ -157,7 +153,6 @@ async function transcribeChunk(
       file: await toFile(buffer, `audio.${format}`),
       model: "whisper-1",
       response_format: "verbose_json",
-      prompt: TRANSCRIPTION_PROMPT,
     };
     if (lang) params.language = lang;
 
@@ -187,7 +182,6 @@ async function transcribeChunk(
       file: await toFile(buffer, `audio.${format}`),
       model: "gpt-4o-mini-transcribe",
       response_format: "text",
-      prompt: TRANSCRIPTION_PROMPT,
     };
     if (lang) fallbackParams.language = lang;
 
