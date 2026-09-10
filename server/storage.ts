@@ -24,6 +24,7 @@ export interface IStorage {
   getUserById(id: number): Promise<User | undefined>;
   findOrCreateOAuthUser(email: string, name?: string): Promise<User>;
   incrementTranscriptUsage(userId: number): Promise<void>;
+  decrementTranscriptUsage(userId: number): Promise<void>;
   resetMonthlyUsageIfNeeded(userId: number): Promise<void>;
 }
 
@@ -125,6 +126,13 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(users)
       .set({ transcriptsUsedThisMonth: sql`${users.transcriptsUsedThisMonth} + 1` })
+      .where(eq(users.id, userId));
+  }
+
+  async decrementTranscriptUsage(userId: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ transcriptsUsedThisMonth: sql`GREATEST(${users.transcriptsUsedThisMonth} - 1, 0)` })
       .where(eq(users.id, userId));
   }
 

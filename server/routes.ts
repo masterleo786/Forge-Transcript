@@ -139,7 +139,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(201).json(transcript);
 
       const language = input.language && input.language !== "auto" ? input.language : undefined;
-      processUrlTranscription(transcript.id, input.url, language).catch(err => {
+      processUrlTranscription(transcript.id, input.url, language, user?.id, (req as any).session).catch(err => {
         console.error("Background URL processing failed:", err);
       });
 
@@ -209,7 +209,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(201).json(transcript);
 
       const fileLanguage = (req.body?.language && req.body.language !== "auto") ? req.body.language : undefined;
-      processFileTranscription(transcript.id, req.file.path, req.file.mimetype, fileLanguage).catch(err => {
+      processFileTranscription(transcript.id, req.file.path, req.file.mimetype, fileLanguage, user?.id, (req as any).session).catch(err => {
         console.error("Background file processing failed:", err);
       });
 
@@ -242,7 +242,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
 // ─── Background: URL ──────────────────────────────────────────────────────────
 
-async function processUrlTranscription(id: number, url: string, language?: string) {
+async function processUrlTranscription(
+  id: number,
+  url: string,
+  language?: string,
+  userId?: number,
+  guestSession?: { guestTranscriptsUsed?: number; guestTranscriptIds?: number[] },
+) {
   try {
     await storage.updateTranscriptStatus(id, "processing");
 
@@ -269,12 +275,20 @@ async function processUrlTranscription(id: number, url: string, language?: strin
   } catch (error: any) {
     console.error(`URL Transcription error for ID ${id}:`, error);
     await storage.updateTranscriptStatus(id, "failed", error.message || "Failed to process video URL");
+    await releaseTranscriptUsage(userId, guestSession, id);
   }
 }
 
 // ─── Background: File ─────────────────────────────────────────────────────────
 
-async function processFileTranscription(id: number, filePath: string, mimeType: string, language?: string) {
+async function processFileTranscription(
+  id: number,
+  filePath: string,
+  mimeType: string,
+  language?: string,
+  userId?: number,
+  guestSession?: { guestTranscriptsUsed?: number; guestTranscriptIds?: number[] },
+) {
   try {
     await storage.updateTranscriptStatus(id, "processing");
 
@@ -302,6 +316,28 @@ async function processFileTranscription(id: number, filePath: string, mimeType: 
     console.error(`File Transcription error for ID ${id}:`, error);
     await fs.unlink(filePath).catch(() => {});
     await storage.updateTranscriptStatus(id, "failed", error.message || "Failed to process audio file");
+    await releaseTranscriptUsage(userId, guestSession, id);
+  }
+}
+
+async function releaseTranscriptUsage(
+  userId: number | undefined,
+  guestSession: {
+    guestTranscriptsUsed?: number;
+    guestTranscriptIds?: number[];
+    save?: (callback: (error?: any) => void) => void;
+  } | undefined,
+  transcriptId: number,
+) {
+  if (userId) {
+    await storage.decrementTranscriptUsage(userId);
+    return;
+  }
+  if (guestSession) {
+    guestSession.guestTranscriptsUsed = Math.max((guestSession.guestTranscriptsUsed || 0) - 1, 0);
+    if (guestSession.save) {
+      await new Promise<void>((resolve) => guestSession.save?.(() => resolve()));
+    }
   }
 }
 

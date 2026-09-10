@@ -203,9 +203,15 @@ export default function Home() {
             </div>
             )}
 
+            <p className="px-3 mb-3 text-center text-xs text-muted-foreground">
+              {activeTool === "transcribe"
+                ? "Transcribe turns speech into written text."
+                : "Download saves the original public video or audio file."}
+            </p>
+
             <div className="p-2 md:p-4">
               <motion.div
-                key={activeTab}
+                key={`${activeTool}-${activeTab}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
