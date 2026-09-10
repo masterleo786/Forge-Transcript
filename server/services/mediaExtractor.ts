@@ -68,6 +68,8 @@ export async function assertPublicMediaUrl(rawUrl: string): Promise<URL> {
 
 function safeFilename(name: string, extension: DownloadFormat): string {
   const clean = name
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7e]/g, "")
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "")
     .replace(/\s+/g, " ")
     .trim()
