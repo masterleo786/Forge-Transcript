@@ -6,6 +6,7 @@ import path from "path";
 import crypto from "crypto";
 import dns from "dns/promises";
 import net from "net";
+import "./mediaTools";
 
 export type DownloadFormat = "mp4" | "mp3";
 export type DownloadQuality = "best" | "1080" | "720" | "480";

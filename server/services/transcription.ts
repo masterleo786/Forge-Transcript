@@ -6,6 +6,7 @@ import { writeFile, unlink, readFile, readdir, mkdir } from "fs/promises";
 import { randomUUID } from "crypto";
 import path from "path";
 import os from "os";
+import { ffmpegBinary } from "./mediaTools";
 
 const MAX_CHUNK_BYTES = 20 * 1024 * 1024;
 
@@ -60,7 +61,7 @@ async function compressAudio(buffer: Buffer, inputFormat: string): Promise<Buffe
   const outputPath = path.join(os.tmpdir(), `compress-out-${randomUUID()}.mp3`);
   try {
     await writeFile(inputPath, buffer);
-    await spawnAsync("ffmpeg", ["-i", inputPath, "-vn", "-ar", "16000", "-ac", "1", "-b:a", "32k", "-y", outputPath]);
+    await spawnAsync(ffmpegBinary, ["-i", inputPath, "-vn", "-ar", "16000", "-ac", "1", "-b:a", "32k", "-y", outputPath]);
     return await readFile(outputPath);
   } finally {
     await unlink(inputPath).catch(() => {});
@@ -76,7 +77,7 @@ async function splitIntoChunks(buffer: Buffer): Promise<Buffer[]> {
   try {
     await writeFile(inputPath, buffer);
     await mkdir(outDir, { recursive: true });
-    await spawnAsync("ffmpeg", ["-i", inputPath, "-f", "segment", "-segment_time", "600", "-c", "copy", "-y", outPattern]);
+    await spawnAsync(ffmpegBinary, ["-i", inputPath, "-f", "segment", "-segment_time", "600", "-c", "copy", "-y", outPattern]);
     const files = (await readdir(outDir)).sort();
     const chunks: Buffer[] = [];
     for (const f of files) {
