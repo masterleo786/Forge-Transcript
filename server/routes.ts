@@ -115,6 +115,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post(api.transcripts.createFromUrl.path, async (req, res) => {
     try {
       const input = api.transcripts.createFromUrl.input.parse(req.body);
+      await assertPublicMediaUrl(input.url);
       const allowed = await checkUsageLimit(req, res);
       if (!allowed) return;
 
@@ -146,6 +147,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message, field: error.errors[0].path.join(".") });
+      }
+      if (
+        error instanceof Error &&
+        [
+          "Enter a valid public video URL.",
+          "Only public HTTP and HTTPS video URLs are supported.",
+          "Local and private network URLs are not allowed.",
+          "This URL host could not be reached.",
+        ].includes(error.message)
+      ) {
+        return res.status(400).json({ message: error.message });
       }
       console.error("Error creating from URL:", error);
       res.status(500).json({ message: "Internal server error" });

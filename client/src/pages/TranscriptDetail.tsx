@@ -84,7 +84,10 @@ export default function TranscriptDetail() {
     );
   }
 
-  const isProcessing = transcript.status === "pending" || transcript.status === "processing";
+  const showProcessingPanel =
+    transcript.status === "pending" ||
+    transcript.status === "processing" ||
+    transcript.status === "failed";
   const srtSegments = transcript.srtContent ? parseSrt(transcript.srtContent) : [];
   const hasTimestamps = srtSegments.length > 0;
 
@@ -174,7 +177,7 @@ export default function TranscriptDetail() {
 
       <main className="max-w-7xl mx-auto px-4 md:px-8 py-8">
         <AnimatePresence mode="wait">
-          {isProcessing ? (
+          {showProcessingPanel ? (
             <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="mt-8">
               <ProcessingSteps transcript={transcript} />
             </motion.div>
