@@ -6,9 +6,10 @@ import { writeFile, unlink, readFile, readdir, mkdir } from "fs/promises";
 import { randomUUID } from "crypto";
 import path from "path";
 import os from "os";
-import { ffmpegBinary } from "./mediaTools";
+import { ffmpegBinary, ffprobeBinary } from "./mediaTools";
 
 const MAX_CHUNK_BYTES = 20 * 1024 * 1024;
+const MAX_CHUNK_SECONDS = 600;
 
 export interface TranscriptionResult {
   text: string;
@@ -69,15 +70,64 @@ async function compressAudio(buffer: Buffer, inputFormat: string): Promise<Buffe
   }
 }
 
-async function splitIntoChunks(buffer: Buffer): Promise<Buffer[]> {
+async function getAudioDuration(buffer: Buffer, format: string): Promise<number> {
+  const extension = /^[a-z0-9]{1,8}$/i.test(format) ? format : "audio";
+  const inputPath = path.join(os.tmpdir(), `duration-${randomUUID()}.${extension}`);
+  try {
+    await writeFile(inputPath, buffer);
+    const output = await spawnCaptureAsync(ffprobeBinary, [
+      "-v", "error",
+      "-show_entries", "format=duration",
+      "-of", "default=noprint_wrappers=1:nokey=1",
+      inputPath,
+    ]);
+    const duration = Number(output.trim());
+    if (!Number.isFinite(duration) || duration <= 0) {
+      throw new Error("The audio duration could not be determined.");
+    }
+    return duration;
+  } finally {
+    await unlink(inputPath).catch(() => {});
+  }
+}
+
+function chooseChunkSeconds(duration: number, bytes: number): number {
+  const sizeLimitedSeconds = bytes > MAX_CHUNK_BYTES
+    ? Math.floor((MAX_CHUNK_BYTES / bytes) * duration * 0.8)
+    : MAX_CHUNK_SECONDS;
+  const maxChunkSeconds = Math.max(60, Math.min(MAX_CHUNK_SECONDS, sizeLimitedSeconds));
+  const chunkCount = Math.ceil(duration / maxChunkSeconds);
+  // Balance the final segment so a long recording does not leave a tiny tail
+  // that has too little context to transcribe reliably.
+  return Math.ceil(duration / chunkCount);
+}
+
+async function splitIntoChunks(
+  buffer: Buffer,
+  format: string,
+  chunkSeconds: number,
+): Promise<Buffer[]> {
   const id = randomUUID();
-  const inputPath = path.join(os.tmpdir(), `split-in-${id}.mp3`);
+  const extension = /^[a-z0-9]{1,8}$/i.test(format) ? format : "audio";
+  const inputPath = path.join(os.tmpdir(), `split-in-${id}.${extension}`);
   const outDir = path.join(os.tmpdir(), `split-${id}`);
   const outPattern = path.join(outDir, "chunk-%03d.mp3");
   try {
     await writeFile(inputPath, buffer);
     await mkdir(outDir, { recursive: true });
-    await spawnAsync(ffmpegBinary, ["-i", inputPath, "-f", "segment", "-segment_time", "600", "-c", "copy", "-y", outPattern]);
+    await spawnAsync(ffmpegBinary, [
+      "-i", inputPath,
+      "-map", "0:a:0",
+      "-vn",
+      "-f", "segment",
+      "-segment_time", String(chunkSeconds),
+      "-reset_timestamps", "1",
+      "-ar", "16000",
+      "-ac", "1",
+      "-c:a", "libmp3lame",
+      "-b:a", "32k",
+      "-y", outPattern,
+    ]);
     const files = (await readdir(outDir)).sort();
     const chunks: Buffer[] = [];
     for (const f of files) {
@@ -85,11 +135,29 @@ async function splitIntoChunks(buffer: Buffer): Promise<Buffer[]> {
       chunks.push(await readFile(chunkPath));
       await unlink(chunkPath).catch(() => {});
     }
+    if (!chunks.length) throw new Error("Audio splitting produced no chunks.");
     return chunks;
   } finally {
     await unlink(inputPath).catch(() => {});
     await unlink(outDir).catch(() => {});
   }
+}
+
+async function spawnCaptureAsync(cmd: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const process = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    process.stdout.setEncoding("utf8");
+    process.stderr.setEncoding("utf8");
+    process.stdout.on("data", (data: string) => { stdout += data; });
+    process.stderr.on("data", (data: string) => { stderr += data; });
+    process.on("close", (code) => {
+      if (code === 0) resolve(stdout);
+      else reject(new Error(`${cmd} exited ${code}: ${stderr.trim().slice(-1000)}`));
+    });
+    process.on("error", reject);
+  });
 }
 
 function spawnAsync(cmd: string, args: string[]): Promise<void> {
@@ -99,6 +167,24 @@ function spawnAsync(cmd: string, args: string[]): Promise<void> {
     p.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} exited ${code}`))));
     p.on("error", reject);
   });
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (true) {
+      const index = nextIndex++;
+      if (index >= items.length) return;
+      results[index] = await mapper(items[index], index);
+    }
+  }));
+  return results;
 }
 
 // Map any non-standard codes to valid Whisper ISO 639-1 codes
@@ -148,18 +234,20 @@ async function transcribeChunk(
 
   const lang = normaliseLanguage(language);
 
-  // PRIMARY: whisper-1 with verbose_json — gives real timestamps
+  // PRIMARY: gpt-4o-transcribe — the configured Replit speech endpoint
+  // rejects whisper-1; the higher-accuracy model returns transcript JSON.
   try {
     const params: any = {
       file: await toFile(buffer, `audio.${format}`),
-      model: "whisper-1",
-      response_format: "verbose_json",
+      model: "gpt-4o-transcribe",
+      response_format: "json",
     };
     if (lang) params.language = lang;
 
     const response = await openai.audio.transcriptions.create(params) as any;
+    const text = (typeof response === "string" ? response : response?.text || "").trim();
 
-    if (!response?.text?.trim()) throw new Error("Empty response from whisper-1");
+    if (!text) throw new Error("Empty response from gpt-4o-transcribe");
 
     const rawSegments: Array<{ start: number; end: number; text: string }> =
       (response.segments || []).map((s: any) => ({
@@ -169,15 +257,15 @@ async function transcribeChunk(
       }));
 
     return {
-      text: response.text,
+      text,
       segments: rawSegments,
       duration: (response.duration || 0) + timeOffset,
     };
   } catch (primaryErr: any) {
-    console.warn(`[transcription] whisper-1 failed (${primaryErr?.message}), trying gpt-4o-mini-transcribe`);
+    console.warn(`[transcription] gpt-4o-transcribe failed (${primaryErr?.message}), trying gpt-4o-mini-transcribe`);
   }
 
-  // FALLBACK: gpt-4o-mini-transcribe — no timestamps but reliable transcription
+  // FALLBACK: gpt-4o-mini-transcribe — supported lower-cost recovery model.
   try {
     const fallbackParams: any = {
       file: await toFile(buffer, `audio.${format}`),
@@ -203,38 +291,45 @@ export async function transcribeAudio(
 ): Promise<TranscriptionResult> {
   let buf = audioBuffer;
   let fmt = format;
+  const audioDuration = await getAudioDuration(buf, fmt);
 
   if (buf.length > MAX_CHUNK_BYTES) {
     buf = await compressAudio(buf, format);
     fmt = "mp3";
   }
 
-  if (buf.length > MAX_CHUNK_BYTES) {
-    const chunks = await splitIntoChunks(buf);
-    const CHUNK_SECONDS = 600;
-    const results = await Promise.all(
-      chunks.map((chunk, i) => transcribeChunk(chunk, "mp3", language, i * CHUNK_SECONDS))
-    );
+  if (audioDuration > MAX_CHUNK_SECONDS || buf.length > MAX_CHUNK_BYTES) {
+    const chunkSeconds = chooseChunkSeconds(audioDuration, buf.length);
+    const chunks = await splitIntoChunks(buf, fmt, chunkSeconds);
+    const results = await mapWithConcurrency(chunks, 2, async (chunk, i) => {
+      try {
+        return await transcribeChunk(chunk, "mp3", language, i * chunkSeconds);
+      } catch (error: any) {
+        throw new Error(`Transcription failed for audio segment ${i + 1} of ${chunks.length}: ${error?.message || "unknown error"}`);
+      }
+    });
 
     const allSegments = results.flatMap((r) => r.segments);
-    const fullText = results.map((r) => r.text).join(" ");
-    const totalDuration = results[results.length - 1]?.duration || 0;
+    allSegments.sort((a, b) => a.start - b.start);
+    const fullText = results.map((r) => r.text.trim()).filter(Boolean).join(" ");
+    if (!fullText) throw new Error("No speech was transcribed from the audio.");
 
     return {
       text: fullText,
       srtContent: buildSrt(allSegments),
       vttContent: buildVtt(allSegments),
-      duration: totalDuration,
+      duration: Math.round(audioDuration),
       segments: allSegments,
     };
   }
 
   const result = await transcribeChunk(buf, fmt, language, 0);
+  if (!result.text.trim()) throw new Error("No speech was transcribed from the audio.");
   return {
     text: result.text,
     srtContent: buildSrt(result.segments),
     vttContent: buildVtt(result.segments),
-    duration: result.duration,
+    duration: result.duration > 0 ? result.duration : Math.round(audioDuration),
     segments: result.segments,
   };
 }
