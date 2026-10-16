@@ -1,7 +1,64 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
-import { assertPublicMediaUrl } from "./mediaExtractor";
+import { assertPublicMediaUrl, limitVideoHeight } from "./mediaExtractor";
+import { ffmpegBinary, ffprobeBinary } from "./mediaTools";
 import { detectMediaPlatformFromUrl } from "@shared/media-platform";
+
+function runTool(command: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (data: string) => { stdout += data; });
+    child.stderr.on("data", (data: string) => { stderr += data; });
+    child.on("close", (code) => {
+      if (code === 0) resolve(stdout);
+      else reject(new Error(`${command} exited ${code}: ${stderr.slice(-800)}`));
+    });
+    child.on("error", reject);
+  });
+}
+
+test("enforces selected maximum resolution and does not upscale smaller sources", async () => {
+  const tempDir = await mkdtemp(path.join(tmpdir(), "download-quality-test-"));
+  const sourcePath = path.join(tempDir, "source.mp4");
+  let scaledPath: string | undefined;
+
+  try {
+    await runTool(ffmpegBinary, [
+      "-hide_banner", "-loglevel", "error",
+      "-f", "lavfi", "-i", "color=c=blue:s=720x1280:r=24:d=1",
+      "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+      "-t", "1",
+      "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p",
+      "-c:a", "aac",
+      "-y", sourcePath,
+    ]);
+
+    scaledPath = await limitVideoHeight(sourcePath, "480");
+    assert.notEqual(scaledPath, sourcePath);
+    const scaledHeight = Number((await runTool(ffprobeBinary, [
+      "-v", "error",
+      "-select_streams", "v:0",
+      "-show_entries", "stream=height",
+      "-of", "default=noprint_wrappers=1:nokey=1",
+      scaledPath,
+    ])).trim());
+    assert.equal(scaledHeight, 480);
+    assert.equal(await limitVideoHeight(scaledPath, "720"), scaledPath);
+  } finally {
+    if (scaledPath && scaledPath !== sourcePath) {
+      await rm(scaledPath, { force: true });
+    }
+    await rm(tempDir, { recursive: true, force: true });
+  }
+});
 
 test("detects supported providers from exact hostnames and their subdomains", () => {
   const cases: Array<[string, string]> = [

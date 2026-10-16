@@ -6,13 +6,76 @@ import path from "path";
 import crypto from "crypto";
 import dns from "dns/promises";
 import net from "net";
-import "./mediaTools";
+import { spawn } from "child_process";
+import { ffmpegBinary, ffprobeBinary } from "./mediaTools";
 import { detectMediaPlatformFromUrl } from "@shared/media-platform";
 
 export type DownloadFormat = "mp4" | "mp3";
 export type DownloadQuality = "best" | "1080" | "720" | "480";
 
 const MAX_DOWNLOAD_BYTES = 250 * 1024 * 1024;
+const MAX_SOURCE_DOWNLOAD_BYTES = 500 * 1024 * 1024;
+
+function runMediaTool(command: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (data: string) => { stdout += data; });
+    child.stderr.on("data", (data: string) => { stderr += data; });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve(stdout);
+      else reject(new Error(`${command} exited ${code}: ${stderr.trim().slice(-800)}`));
+    });
+  });
+}
+
+export async function limitVideoHeight(
+  filePath: string,
+  quality: DownloadQuality,
+): Promise<string> {
+  if (quality === "best") return filePath;
+
+  const output = await runMediaTool(ffprobeBinary, [
+    "-v", "error",
+    "-select_streams", "v:0",
+    "-show_entries", "stream=height",
+    "-of", "default=noprint_wrappers=1:nokey=1",
+    filePath,
+  ]);
+  const height = Number(output.trim());
+  if (!Number.isFinite(height) || height <= 0) {
+    throw new Error("Could not determine the downloaded video's resolution.");
+  }
+
+  const targetHeight = Number(quality);
+  if (height <= targetHeight) return filePath;
+
+  const convertedPath = path.join(os.tmpdir(), `scaled-${crypto.randomUUID()}.mp4`);
+  try {
+    await runMediaTool(ffmpegBinary, [
+      "-hide_banner", "-loglevel", "error",
+      "-i", filePath,
+      "-map", "0:v:0",
+      "-map", "0:a?",
+      "-vf", `scale=-2:${targetHeight}`,
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-crf", "23",
+      "-c:a", "aac",
+      "-b:a", "128k",
+      "-movflags", "+faststart",
+      "-y", convertedPath,
+    ]);
+    return convertedPath;
+  } catch (error: any) {
+    await fs.unlink(convertedPath).catch(() => {});
+    throw new Error(`Could not create the requested ${targetHeight}p video: ${error?.message || "video conversion failed"}`);
+  }
+}
 
 export function detectMediaPlatform(url: string): string {
   return detectMediaPlatformFromUrl(url);
@@ -109,9 +172,6 @@ export async function extractMediaFromUrl(url: string): Promise<{ buffer: Buffer
       noWarnings: true,
       noPlaylist: true,        // never grab playlists, only the single video
       printJson: true,         // get metadata in same call
-      ...(platform === "youtube"
-        ? { extractorArgs: "youtube:player_client=android" }
-        : {}),
     } as any) as any;
 
     const buffer = await fs.readFile(tempPath);
@@ -134,27 +194,32 @@ export async function downloadMediaFromUrl(
   const platform = detectMediaPlatform(url);
   const extension = format === "mp3" ? "mp3" : "mp4";
   const tempPath = path.join(os.tmpdir(), `download-${crypto.randomUUID()}.${extension}`);
+  let convertedPath: string | undefined;
 
   try {
     const heightFilter = quality === "best" ? "" : `[height<=${quality}]`;
+    const videoFormat = quality === "best"
+      ? "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+      : `bestvideo${heightFilter}[ext=mp4]+bestaudio[ext=m4a]/best${heightFilter}[ext=mp4]/bestvideo+bestaudio/best`;
     const options: Record<string, unknown> = {
       output: tempPath,
       noWarnings: true,
       noPlaylist: true,
-      maxFilesize: "250M",
+      maxFilesize: format === "mp4" && quality !== "best"
+        ? `${Math.floor(MAX_SOURCE_DOWNLOAD_BYTES / (1024 * 1024))}M`
+        : `${Math.floor(MAX_DOWNLOAD_BYTES / (1024 * 1024))}M`,
       printJson: true,
       format: format === "mp3"
         ? "bestaudio/best"
-        : `bestvideo${heightFilter}[ext=mp4]+bestaudio[ext=m4a]/best${heightFilter}[ext=mp4]/best`,
+        : videoFormat,
       ...(format === "mp3"
         ? { extractAudio: true, audioFormat: "mp3", audioQuality: 0 }
         : { mergeOutputFormat: "mp4" }),
-      ...(platform === "youtube"
-        ? { extractorArgs: "youtube:player_client=android" }
-        : {}),
     };
     const result = await youtubedl(url, options as any) as any;
-    const buffer = await fs.readFile(tempPath);
+    const outputPath = format === "mp4" ? await limitVideoHeight(tempPath, quality) : tempPath;
+    if (outputPath !== tempPath) convertedPath = outputPath;
+    const buffer = await fs.readFile(outputPath);
     if (buffer.length > MAX_DOWNLOAD_BYTES) {
       throw new Error("This download is larger than the 250 MB limit.");
     }
@@ -170,5 +235,6 @@ export async function downloadMediaFromUrl(
     throw extractionError(platform, error);
   } finally {
     await fs.unlink(tempPath).catch(() => {});
+    if (convertedPath) await fs.unlink(convertedPath).catch(() => {});
   }
 }

@@ -27,13 +27,13 @@ function Hero() {
         </div>
 
         <h1 className="text-4xl md:text-6xl font-display font-bold leading-tight mb-4">
-          Transcribe any video
+          Transcribe videos and audio
           <br />
-          <span className="text-primary">in seconds</span>
+          <span className="text-primary">from a link or file</span>
         </h1>
 
         <p className="text-muted-foreground text-lg md:text-xl max-w-xl mx-auto mb-8">
-          Paste a public URL or upload a file. Follow the job as it runs and view or download the finished transcript.
+          Paste an eligible public media URL or upload a file. Follow the job as it runs, then view or download the finished transcript.
         </p>
 
         {/* Platform badges */}
@@ -71,7 +71,7 @@ function ComparisonStrip() {
     {
       icon: <FileVideo className="w-5 h-5 text-purple-400" />,
       title: "Long recordings",
-      desc: "File audio is split into smaller transcription segments, including 3-hour recordings",
+      desc: "Long file audio is split into smaller transcription segments",
     },
     {
       icon: <Clock className="w-5 h-5 text-amber-400" />,

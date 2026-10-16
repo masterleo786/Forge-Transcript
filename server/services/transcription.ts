@@ -106,13 +106,18 @@ async function getAudioFileDuration(filePath: string): Promise<number> {
 }
 
 function chooseChunkSeconds(duration: number, bytes: number): number {
+  // ffprobe can report a few hundredths of a second beyond an exact boundary
+  // (for example, a 3-hour MP3 as 10800.04s). Round before counting chunks so
+  // that encoding padding does not create an unnecessary extra API call.
+  const roundedDuration = Math.max(1, Math.round(duration));
   const sizeLimitedSeconds = bytes > MAX_CHUNK_BYTES
-    ? Math.floor((MAX_CHUNK_BYTES / bytes) * duration * 0.8)
+    ? Math.floor((MAX_CHUNK_BYTES / bytes) * roundedDuration * 0.8)
     : MAX_CHUNK_SECONDS;
   const maxChunkSeconds = Math.max(60, Math.min(MAX_CHUNK_SECONDS, sizeLimitedSeconds));
-  const chunkCount = Math.ceil(duration / maxChunkSeconds);
-  // Balance the final segment so a long recording does not leave a tiny tail
-  // that has too little context to transcribe reliably.
+  const chunkCount = Math.ceil(roundedDuration / maxChunkSeconds);
+  // Use the measured duration when spreading it across the rounded chunk count.
+  // This absorbs codec padding into the last regular segment instead of
+  // producing a tiny extra file at an exact boundary.
   return Math.ceil(duration / chunkCount);
 }
 
