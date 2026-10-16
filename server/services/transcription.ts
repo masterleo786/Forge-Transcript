@@ -2,7 +2,7 @@ import { openai } from "../replit_integrations/audio/client";
 import { toFile } from "openai";
 import { Buffer } from "node:buffer";
 import { spawn } from "child_process";
-import { writeFile, unlink, readFile, readdir, mkdir } from "fs/promises";
+import { writeFile, unlink, readFile, readdir, mkdir, rm } from "fs/promises";
 import { randomUUID } from "crypto";
 import path from "path";
 import os from "os";
@@ -91,6 +91,20 @@ async function getAudioDuration(buffer: Buffer, format: string): Promise<number>
   }
 }
 
+async function getAudioFileDuration(filePath: string): Promise<number> {
+  const output = await spawnCaptureAsync(ffprobeBinary, [
+    "-v", "error",
+    "-show_entries", "format=duration",
+    "-of", "default=noprint_wrappers=1:nokey=1",
+    filePath,
+  ]);
+  const duration = Number(output.trim());
+  if (!Number.isFinite(duration) || duration <= 0) {
+    throw new Error("The audio duration could not be determined.");
+  }
+  return duration;
+}
+
 function chooseChunkSeconds(duration: number, bytes: number): number {
   const sizeLimitedSeconds = bytes > MAX_CHUNK_BYTES
     ? Math.floor((MAX_CHUNK_BYTES / bytes) * duration * 0.8)
@@ -163,8 +177,14 @@ async function spawnCaptureAsync(cmd: string, args: string[]): Promise<string> {
 function spawnAsync(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const p = spawn(cmd, args);
-    p.stderr.on("data", () => {});
-    p.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} exited ${code}`))));
+    let stderr = "";
+    p.stderr.setEncoding("utf8");
+    p.stderr.on("data", (data: string) => { stderr += data; });
+    p.on("close", (code) => (
+      code === 0
+        ? resolve()
+        : reject(new Error(`${cmd} exited ${code}: ${stderr.trim().slice(-800)}`))
+    ));
     p.on("error", reject);
   });
 }
@@ -332,6 +352,69 @@ export async function transcribeAudio(
     duration: result.duration > 0 ? result.duration : Math.round(audioDuration),
     segments: result.segments,
   };
+}
+
+export async function transcribeAudioFile(
+  inputPath: string,
+  language?: string,
+): Promise<TranscriptionResult> {
+  const duration = await getAudioFileDuration(inputPath);
+  const chunkSeconds = chooseChunkSeconds(duration, 0);
+  const outDir = path.join(os.tmpdir(), `transcribe-file-${randomUUID()}`);
+  const outputPattern = path.join(outDir, "chunk-%03d.mp3");
+
+  try {
+    await mkdir(outDir, { recursive: true });
+    await spawnAsync(ffmpegBinary, [
+      "-hide_banner", "-loglevel", "error",
+      "-i", inputPath,
+      "-map", "0:a:0",
+      "-vn",
+      "-f", "segment",
+      "-segment_time", String(chunkSeconds),
+      "-reset_timestamps", "1",
+      "-ar", "16000",
+      "-ac", "1",
+      "-c:a", "libmp3lame",
+      "-b:a", "32k",
+      "-y", outputPattern,
+    ]);
+
+    const chunkPaths = (await readdir(outDir))
+      .filter((name) => name.endsWith(".mp3"))
+      .sort()
+      .map((name) => path.join(outDir, name));
+    if (!chunkPaths.length) {
+      throw new Error("Audio preparation produced no transcription segments.");
+    }
+
+    const results = await mapWithConcurrency(chunkPaths, 2, async (chunkPath, index) => {
+      try {
+        const chunk = await readFile(chunkPath);
+        return await transcribeChunk(chunk, "mp3", language, index * chunkSeconds);
+      } catch (error: any) {
+        throw new Error(
+          `Transcription failed for audio segment ${index + 1} of ${chunkPaths.length}: ${error?.message || "unknown error"}`,
+        );
+      } finally {
+        await unlink(chunkPath).catch(() => {});
+      }
+    });
+
+    const segments = results.flatMap((result) => result.segments).sort((a, b) => a.start - b.start);
+    const text = results.map((result) => result.text.trim()).filter(Boolean).join(" ");
+    if (!text) throw new Error("No speech was transcribed from the audio.");
+
+    return {
+      text,
+      srtContent: buildSrt(segments),
+      vttContent: buildVtt(segments),
+      duration: Math.round(duration),
+      segments,
+    };
+  } finally {
+    await rm(outDir, { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 export async function generateSummary(transcript: string): Promise<string> {

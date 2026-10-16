@@ -7,7 +7,7 @@ import multer from "multer";
 import os from "os";
 import path from "path";
 import fs from "fs/promises";
-import { transcribeAudio, generateSummary, transliterateToRomanUrdu } from "./services/transcription";
+import { transcribeAudio, transcribeAudioFile, generateSummary, transliterateToRomanUrdu } from "./services/transcription";
 import { assertPublicMediaUrl, detectMediaPlatform, downloadMediaFromUrl, extractMediaFromUrl } from "./services/mediaExtractor";
 import { ensureCompatibleFormat } from "./replit_integrations/audio/client";
 import { PLAN_LIMITS, type UserPlan } from "@shared/schema";
@@ -221,7 +221,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(201).json(transcript);
 
       const fileLanguage = (req.body?.language && req.body.language !== "auto") ? req.body.language : undefined;
-      processFileTranscription(transcript.id, req.file.path, req.file.mimetype, fileLanguage, user?.id, (req as any).session).catch(err => {
+      processFileTranscription(transcript.id, req.file.path, fileLanguage, user?.id, (req as any).session).catch(err => {
         console.error("Background file processing failed:", err);
       });
 
@@ -296,7 +296,6 @@ async function processUrlTranscription(
 async function processFileTranscription(
   id: number,
   filePath: string,
-  mimeType: string,
   language?: string,
   userId?: number,
   guestSession?: { guestTranscriptsUsed?: number; guestTranscriptIds?: number[] },
@@ -304,11 +303,7 @@ async function processFileTranscription(
   try {
     await storage.updateTranscriptStatus(id, "processing");
 
-    const fileBuffer = await fs.readFile(filePath);
-    await fs.unlink(filePath).catch(console.error);
-
-    const { buffer: compatibleBuffer, format: compFormat } = await ensureCompatibleFormat(fileBuffer);
-    const { text: rawText, srtContent, duration: audioDuration } = await transcribeAudio(compatibleBuffer, compFormat, language);
+    const { text: rawText, srtContent, duration: audioDuration } = await transcribeAudioFile(filePath, language);
     const text = language === "ur-roman" ? await transliterateToRomanUrdu(rawText) : rawText;
     const summary = await generateSummary(text);
 
@@ -326,9 +321,10 @@ async function processFileTranscription(
 
   } catch (error: any) {
     console.error(`File Transcription error for ID ${id}:`, error);
-    await fs.unlink(filePath).catch(() => {});
     await storage.updateTranscriptStatus(id, "failed", error.message || "Failed to process audio file");
     await releaseTranscriptUsage(userId, guestSession, id);
+  } finally {
+    await fs.unlink(filePath).catch(() => {});
   }
 }
 

@@ -7,6 +7,7 @@ import crypto from "crypto";
 import dns from "dns/promises";
 import net from "net";
 import "./mediaTools";
+import { detectMediaPlatformFromUrl } from "@shared/media-platform";
 
 export type DownloadFormat = "mp4" | "mp3";
 export type DownloadQuality = "best" | "1080" | "720" | "480";
@@ -14,20 +15,7 @@ export type DownloadQuality = "best" | "1080" | "720" | "480";
 const MAX_DOWNLOAD_BYTES = 250 * 1024 * 1024;
 
 export function detectMediaPlatform(url: string): string {
-  const lowerUrl = url.toLowerCase();
-  let platform = "unknown";
-  if (lowerUrl.includes("facebook.com") || lowerUrl.includes("fb.watch")) platform = "facebook";
-  else if (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be")) platform = "youtube";
-  else if (lowerUrl.includes("instagram.com")) platform = "instagram";
-  else if (lowerUrl.includes("tiktok.com")) platform = "tiktok";
-  else if (
-    lowerUrl.includes("xiaohongshu.com") ||
-    lowerUrl.includes("xhslink.com") ||
-    lowerUrl.includes("rednote.com")
-  ) platform = "rednote";
-  else if (lowerUrl.includes("kuaishou.com") || lowerUrl.includes("kwai.com")) platform = "kuaishou";
-  else platform = "unknown";
-  return platform;
+  return detectMediaPlatformFromUrl(url);
 }
 
 function isPrivateIp(address: string): boolean {
@@ -98,8 +86,10 @@ function extractionError(platform: string, error: any): Error {
     errorMsg = "This Facebook video may be private or restricted. Try a public link or upload the file directly.";
   } else if (platform === "instagram") {
     errorMsg = "This Instagram video may be private or restricted. Try a public link or upload the file directly.";
+  } else if (platform === "rednote") {
+    errorMsg = "This RedNote/Xiaohongshu link could not be resolved to a public media stream. The post may be unavailable or this link format may not be supported yet. Upload the video file if you have it.";
   } else if (platform === "kuaishou") {
-    errorMsg = "Kuaishou/Kwai links need a supported public resolver. Upload the video file directly for now.";
+    errorMsg = "Kuaishou/Kwai public-link extraction is not available in the current resolver. Upload the video file directly for now.";
   }
   return new Error(errorMsg);
 }

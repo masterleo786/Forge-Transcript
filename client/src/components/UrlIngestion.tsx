@@ -5,6 +5,7 @@ import { PlatformIcon } from "./ui/platform-icon";
 import { LanguageSelector } from "./LanguageSelector";
 import { useCreateFromUrl } from "@/hooks/use-transcripts";
 import { useLocation } from "wouter";
+import { detectMediaPlatformFromUrl } from "@shared/media-platform";
 
 export function UrlIngestion() {
   const [url, setUrl] = useState("");
@@ -15,18 +16,7 @@ export function UrlIngestion() {
 
   useEffect(() => {
     if (!url) { setDetectedPlatform(null); return; }
-    const lowerUrl = url.toLowerCase();
-    if (lowerUrl.includes("facebook.com") || lowerUrl.includes("fb.watch")) setDetectedPlatform("facebook");
-    else if (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be")) setDetectedPlatform("youtube");
-    else if (lowerUrl.includes("instagram.com")) setDetectedPlatform("instagram");
-    else if (lowerUrl.includes("tiktok.com")) setDetectedPlatform("tiktok");
-    else if (
-      lowerUrl.includes("xiaohongshu.com") ||
-      lowerUrl.includes("xhslink.com") ||
-      lowerUrl.includes("rednote.com")
-    ) setDetectedPlatform("rednote");
-    else if (lowerUrl.includes("kuaishou.com") || lowerUrl.includes("kwai.com")) setDetectedPlatform("kuaishou");
-    else setDetectedPlatform("unknown");
+    setDetectedPlatform(detectMediaPlatformFromUrl(url));
   }, [url]);
 
   const handleSubmit = (e: React.FormEvent) => {

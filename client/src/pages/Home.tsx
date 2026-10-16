@@ -23,7 +23,7 @@ function Hero() {
 
       <div className="relative z-10">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
-          <Zap className="w-3.5 h-3.5" /> Powered by OpenAI Whisper — 70+ languages
+          <Zap className="w-3.5 h-3.5" /> AI speech transcription across supported languages
         </div>
 
         <h1 className="text-4xl md:text-6xl font-display font-bold leading-tight mb-4">
@@ -33,7 +33,7 @@ function Hero() {
         </h1>
 
         <p className="text-muted-foreground text-lg md:text-xl max-w-xl mx-auto mb-8">
-          Paste a public URL or upload a file. Get a clean transcript, AI summary, and subtitle file — in any language.
+          Paste a public URL or upload a file. Follow the job as it runs and view or download the finished transcript.
         </p>
 
         {/* Platform badges */}
@@ -70,13 +70,13 @@ function ComparisonStrip() {
     },
     {
       icon: <FileVideo className="w-5 h-5 text-purple-400" />,
-      title: "3+ hour videos",
-      desc: "500 MB uploads with auto-chunking",
+      title: "Long recordings",
+      desc: "File audio is split into smaller transcription segments, including 3-hour recordings",
     },
     {
       icon: <Clock className="w-5 h-5 text-amber-400" />,
-      title: "Real timestamps",
-      desc: "SRT & VTT with accurate timecodes",
+      title: "Automatic status updates",
+      desc: "The transcript page refreshes while a job is processing",
     },
   ];
 

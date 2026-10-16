@@ -58,7 +58,7 @@ export function FileIngestion() {
           </div>
           <h3 className="text-xl font-semibold mb-2">Drag & drop your file here</h3>
           <p className="text-muted-foreground text-sm max-w-sm mx-auto">
-            Supports MP3, WAV, MP4, MOV, MKV and more — up to <strong className="text-white/70">500 MB</strong> (3+ hour videos).
+            Supports MP3, WAV, MP4, MOV, MKV and more — up to <strong className="text-white/70">500 MB</strong>. Long audio is processed in smaller segments.
           </p>
           <p className="text-xs text-primary/80 mt-3">After choosing a file, you’ll select the spoken language before generating.</p>
         </div>
